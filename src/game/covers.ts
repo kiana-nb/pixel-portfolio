@@ -170,65 +170,219 @@ function torob(c: Ctx, t: number) {
   })
 }
 
-// ---------- Fahmyar: a floating isometric island with a tree, a house and spinning coins ----------
+// ---------- Fahmyar: the City Hub, a round town around a fountain plaza ----------
+// Colours come from the game's own city palette (city-theme.ts, day band).
 
-function isoTile(c: Ctx, x: number, y: number, top: string, side: string, sideSh: string) {
-  for (let i = 0; i < 4; i++) {
-    rect(c, x + 6 - i * 2, y + i, 4 + i * 4, 1, top)
-    rect(c, x + 6 - i * 2, y + 7 - i, 4 + i * 4, 1, top)
+const CITY = {
+  skyTop: "#7cb6dd", skyMid: "#bcd9e6", skyHorizon: "#f9e3cd",
+  mountain: "#9db69c", mountainFar: "#c2d2c4",
+  grass: "#77bd48", grassLight: "#a3db69", grassDark: "#4e8c2c",
+  path: "#e9d3b4", pathEdge: "#d0ac86", stone: "#cdc2ae", stoneDark: "#a2947f",
+  water: "#3fbccb", waterFoam: "#e4f8f4", lampPost: "#5b3a19", lampGlow: "#fff2c4",
+  foliage: "#5da33e", foliageLight: "#8fcc5e", foliageDark: "#3a6f2c", trunk: "#87603d",
+  flowerA: "#ff6285", flowerB: "#ffc23d", flowerC: "#ab74ff",
+  wall: "#fbf0dc", wallWarm: "#f4dcb4", roof: "#e0603a", roofDark: "#b0442a", window: "#a9e2ff", windowLit: "#ffe6a6", door: "#6e451f",
+  cinema: "#c9932e", library: "#f59e0b", castle: "#a855f7", arena: "#ec4899", observatory: "#6366f1", academy: "#0ea5a0",
+  robo: "#8b5cf6", roboBlue: "#3b7ddd", roboCream: "#f3e7d3",
+}
+const HUB_X = 80
+const HUB_Y = 62
+
+function cityTree(c: Ctx, x: number, y: number, r: number) {
+  rect(c, x - 1, y - 2, 2, 4, CITY.trunk)
+  disc(c, x, y - r - 1, r + 1, C.ol)
+  disc(c, x, y - r - 1, r, CITY.foliageDark)
+  disc(c, x - 1, y - r - 2, r - 1, CITY.foliage)
+  px(c, x - 2, y - r - 3, CITY.foliageLight)
+  px(c, x - 1, y - r - 4, CITY.foliageLight)
+}
+
+// A building on its lawn: walls, a roof, a door, lit windows and the district-coloured ground ring.
+function building(c: Ctx, x: number, base: number, w: number, h: number, accent: string, roof: "gable" | "flat" | "dome", t: number) {
+  ellipse(c, x + w / 2, base + 1, w / 2 + 3, 2, accent)
+  ellipse(c, x + w / 2, base + 1, w / 2 + 1, 1, CITY.grassDark)
+  box(c, x, base - h, w, h + 1, CITY.wall, undefined, CITY.wallWarm)
+  for (let wx = x + 2; wx < x + w - 3; wx += 4) rect(c, wx, base - h + 3, 2, 2, Math.sin(wx + Math.floor(t)) > 0.2 ? CITY.windowLit : CITY.window)
+  rect(c, x + Math.floor(w / 2) - 1, base - 4, 3, 5, CITY.door)
+  rect(c, x + 1, base - h + 1, w - 2, 1, accent)
+  if (roof === "gable") {
+    const rows = Math.ceil(w / 2) + 1
+    for (let i = 0; i < rows; i++) rect(c, x - 1 + i, base - h - i, w + 2 - i * 2, 1, i === 0 ? CITY.roofDark : CITY.roof)
+  } else if (roof === "dome") {
+    disc(c, x + w / 2, base - h, Math.floor(w / 2), C.ol)
+    disc(c, x + w / 2, base - h, Math.floor(w / 2) - 1, accent)
+    px(c, x + w / 2 - 2, base - h - 3, C.white)
+    rect(c, x, base - h, w, 2, CITY.wall)
+  } else {
+    rect(c, x - 1, base - h - 2, w + 2, 3, accent)
+    rect(c, x - 1, base - h - 2, w + 2, 1, C.ol)
   }
-  rect(c, x, y + 8, 8, 5, side)
-  rect(c, x + 8, y + 8, 8, 5, sideSh)
+}
+
+function roboHouse(c: Ctx, x: number, base: number, t: number) {
+  ellipse(c, x, base + 1, 13, 2, CITY.robo)
+  ellipse(c, x, base + 1, 11, 1, CITY.grassDark)
+  // white dome body with blue side pods
+  rect(c, x - 9, base - 12, 18, 13, C.ol)
+  disc(c, x, base - 12, 9, C.ol)
+  rect(c, x - 8, base - 12, 16, 12, C.white)
+  disc(c, x, base - 12, 8, C.white)
+  rect(c, x - 11, base - 10, 3, 7, CITY.roboBlue)
+  rect(c, x + 8, base - 10, 3, 7, CITY.roboBlue)
+  // screen face that smiles and blinks
+  rbox(c, x - 6, base - 17, 12, 6, "#1d2a4a")
+  if (Math.floor(t * 1.3) % 6 === 0) {
+    rect(c, x - 4, base - 14, 2, 1, "#7fe7ff")
+    rect(c, x + 2, base - 14, 2, 1, "#7fe7ff")
+  } else {
+    for (const ex of [x - 3, x + 3]) {
+      px(c, ex - 1, base - 14, "#7fe7ff")
+      px(c, ex, base - 15, "#7fe7ff")
+      px(c, ex + 1, base - 14, "#7fe7ff")
+    }
+  }
+  rect(c, x - 1, base - 13, 3, 1, "#7fe7ff")
+  // door and antenna
+  rect(c, x - 2, base - 6, 5, 7, CITY.roboBlue)
+  px(c, x + 1, base - 3, C.gold)
+  rect(c, x, base - 23, 1, 3, C.greyDk)
+  disc(c, x, base - 24, 1, C.gold)
+  // flag with a star
+  rect(c, x + 13, base - 20, 1, 21, CITY.trunk)
+  const wave = Math.round(Math.sin(t * 4))
+  rect(c, x + 14, base - 20 + wave, 6, 4, CITY.roboBlue)
+  px(c, x + 16, base - 19 + wave, C.white)
+}
+
+function robo(c: Ctx, x: number, y: number, t: number) {
+  const flap = Math.floor(t * 8) % 2
+  // glittery purple wings
+  rect(c, x - 7, y - 2 + flap, 4, 5 - flap, "#b9a2ff")
+  rect(c, x + 4, y - 2 + flap, 4, 5 - flap, "#b9a2ff")
+  px(c, x - 6, y - 1 + flap, C.white)
+  px(c, x + 6, y + flap, C.white)
+  // body and head
+  disc(c, x, y + 5, 3, C.ol)
+  disc(c, x, y + 5, 2, CITY.roboCream)
+  disc(c, x, y, 5, C.ol)
+  disc(c, x, y, 4, CITY.roboCream)
+  rect(c, x - 3, y - 1, 2, 2, CITY.robo)
+  rect(c, x + 2, y - 1, 2, 2, CITY.robo)
+  px(c, x - 3, y - 1, C.white)
+  px(c, x + 2, y - 1, C.white)
+  px(c, x, y + 2, C.pinkSh)
+  rect(c, x - 1, y - 4, 3, 1, CITY.robo)
 }
 
 function fahmyar(c: Ctx, t: number) {
-  bands(c, ["#8fd0f0", "#a9def5", "#c6ebf8"])
-  for (const [ox, oy, sp] of [[0, 14, 6], [70, 30, 4], [120, 8, 5]]) {
-    const x = ((t * sp + ox) % 190) - 30
-    rect(c, x + 3, oy, 10, 3, C.white)
-    rect(c, x, oy + 3, 17, 3, C.white)
+  // sky and the sage mountains behind the town
+  bands(c, [CITY.skyTop, CITY.skyMid, CITY.skyHorizon])
+  for (const [ox, oy, sp] of [[0, 8, 3], [80, 16, 2]]) {
+    const x = ((t * sp + ox) % 200) - 30
+    rect(c, x + 3, oy, 12, 3, C.white)
+    rect(c, x, oy + 3, 20, 3, C.white)
   }
-  const bob = Math.round(Math.sin(t * 1.4) * 2)
-  // island tiles, back to front
-  const ox = 52
-  const oy = 34 + bob
-  for (let r = 0; r < 4; r++) {
-    for (let k = 0; k < 4; k++) {
-      const x = ox + (k - r) * 8 + 16
-      const y = oy + (k + r) * 4
-      isoTile(c, x, y, (k + r) % 2 ? C.leaf : C.leafHi, "#b9795a", "#8f5a40")
+  const peaks: [number, number, number, string][] = [
+    [8, 18, 22, CITY.mountainFar], [46, 22, 26, CITY.mountainFar], [104, 16, 30, CITY.mountainFar], [150, 20, 22, CITY.mountainFar],
+    [26, 26, 20, CITY.mountain], [76, 28, 24, CITY.mountain], [128, 25, 22, CITY.mountain],
+  ]
+  for (const [peakX, top, half, col] of peaks) {
+    for (let y = top; y < 38; y++) {
+      const w = Math.round(((y - top) / (38 - top)) * half)
+      rect(c, peakX - w, y, w * 2 + 1, 1, col)
     }
+    rect(c, peakX, top, 1, 2, C.white)
   }
-  // dirt underside
-  for (let i = 0; i < 6; i++) rect(c, ox + 18 + i * 2, oy + 33 + i * 2, 28 - i * 4, 2, i % 2 ? "#8f5a40" : "#b9795a")
-  // tree
-  rect(c, ox + 22, oy + 4, 3, 10, C.woodDk)
-  disc(c, ox + 23, oy + 1, 7, C.ol)
-  disc(c, ox + 23, oy + 1, 6, C.leafSh)
-  disc(c, ox + 22, oy, 4, C.leaf)
-  // house
-  box(c, ox + 38, oy + 6, 14, 11, C.cream, undefined, C.paperSh)
-  for (let i = 0; i < 5; i++) rect(c, ox + 37 + i, oy + 5 - i, 16 - i * 2, 1, i === 0 ? C.ol : C.pink)
-  rect(c, ox + 43, oy + 11, 4, 6, C.wood)
-  // hopping kid
-  const hop = Math.round(Math.abs(Math.sin(t * 4)) * -4)
-  const kx = ox + 30
-  const ky = oy + 14 + hop
-  rect(c, kx, ky, 5, 5, C.skin)
-  rect(c, kx, ky - 1, 5, 2, C.hair)
-  rect(c, kx, ky + 5, 5, 4, C.sky)
-  px(c, kx + 1, ky + 2, C.ol)
-  px(c, kx + 3, ky + 2, C.ol)
-  // spinning coins
-  for (let i = 0; i < 3; i++) {
-    const cxp = [36, 112, 128][i]
-    const cyp = [30, 22, 48][i] + Math.round(Math.sin(t * 2 + i) * 2)
-    const w = Math.max(1, Math.round(Math.abs(Math.cos(t * 3 + i)) * 4))
-    rect(c, cxp - w, cyp - 4, w * 2 + 1, 9, C.ol)
-    rect(c, cxp - w + 1, cyp - 3, Math.max(1, w * 2 - 1), 7, C.gold)
-    if (w > 1) px(c, cxp, cyp - 1, C.goldHi)
+
+  // lawn
+  rect(c, 0, 36, COVER_W, COVER_H - 36, CITY.grass)
+  dither(c, 0, 36, COVER_W, 2, CITY.grassLight)
+  for (let i = 0; i < 40; i++) px(c, (i * 37) % 160, 40 + ((i * 23) % 48), i % 3 ? CITY.grassLight : CITY.grassDark)
+
+  // buildings behind the ring, back to front
+  building(c, 18, 44, 14, 9, CITY.castle, "flat", t)
+  rect(c, 17, 30, 3, 6, CITY.castle)
+  rect(c, 30, 30, 3, 6, CITY.castle)
+  rect(c, 19, 26, 1, 4, C.ol)
+  rect(c, 20, 26, 3, 2, C.pink)
+  building(c, 38, 41, 16, 10, CITY.cinema, "flat", t)
+  for (let i = 0; i < 6; i++) px(c, 39 + i * 3, 29, Math.floor(t * 4 + i) % 2 ? C.goldHi : CITY.cinema)
+  building(c, 106, 41, 16, 10, CITY.library, "gable", t)
+  building(c, 128, 44, 14, 10, CITY.observatory, "dome", t)
+  if (Math.sin(t * 3) > 0.5) px(c, 140, 27, C.white)
+  roboHouse(c, HUB_X, 44, t)
+
+  // ring road, spokes and the entrance road
+  ellipse(c, HUB_X, HUB_Y, 60, 19, CITY.pathEdge)
+  ellipse(c, HUB_X, HUB_Y, 58, 18, CITY.path)
+  ellipse(c, HUB_X, HUB_Y, 49, 13, CITY.pathEdge)
+  ellipse(c, HUB_X, HUB_Y, 48, 12, CITY.grass)
+  rect(c, HUB_X - 2, HUB_Y - 13, 5, 26, CITY.path)
+  rect(c, HUB_X - 49, HUB_Y - 1, 98, 3, CITY.path)
+  rect(c, HUB_X - 4, HUB_Y + 18, 9, 12, CITY.path)
+  rect(c, HUB_X - 5, HUB_Y + 18, 1, 12, CITY.pathEdge)
+  rect(c, HUB_X + 5, HUB_Y + 18, 1, 12, CITY.pathEdge)
+  // flower beds inside the ring
+  const beds: [number, number, string][] = [[48, 56, CITY.flowerA], [110, 57, CITY.flowerB], [54, 68, CITY.flowerC], [104, 68, CITY.flowerA]]
+  for (const [fx, fy, col] of beds) {
+    ellipse(c, fx, fy, 5, 2, CITY.grassDark)
+    for (let i = -3; i <= 3; i += 2) px(c, fx + i, fy - (i & 1), col)
   }
-  tag(c, "30 FPS", 6, 76, C.white, C.leafSh)
+
+  // the plaza and its fountain
+  ellipse(c, HUB_X, HUB_Y, 15, 5, CITY.stoneDark)
+  ellipse(c, HUB_X, HUB_Y, 14, 4, CITY.stone)
+  ellipse(c, HUB_X, HUB_Y, 8, 3, C.ol)
+  ellipse(c, HUB_X, HUB_Y, 7, 2, CITY.water)
+  rect(c, HUB_X - 1, HUB_Y - 7, 3, 7, CITY.stone)
+  ellipse(c, HUB_X, HUB_Y - 7, 3, 1, CITY.stoneDark)
+  for (let i = 0; i < 8; i++) {
+    const u = (t * 1.2 + i / 8) % 1
+    const dir = i % 2 ? 1 : -1
+    px(c, HUB_X + dir * Math.round(u * 6), HUB_Y - 9 - Math.round(Math.sin(u * Math.PI) * 4) + Math.round(u * 8), u > 0.85 ? CITY.waterFoam : CITY.water)
+  }
+  px(c, HUB_X + (Math.floor(t * 3) % 2 ? -3 : 3), HUB_Y, CITY.waterFoam)
+
+  // lanterns along the ring road
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.3
+    const lx = Math.round(HUB_X + Math.sin(a) * 54)
+    const ly = Math.round(HUB_Y + Math.cos(a) * 16)
+    rect(c, lx, ly - 6, 1, 6, CITY.lampPost)
+    rect(c, lx - 1, ly - 8, 3, 2, Math.sin(t * 2 + i) > -0.6 ? CITY.lampGlow : CITY.windowLit)
+  }
+
+  // a student walking the ring
+  const a = t * 0.45
+  const wx = Math.round(HUB_X + Math.sin(a) * 53)
+  const wy = Math.round(HUB_Y + Math.cos(a) * 15)
+  const step = Math.floor(t * 6) % 2
+  rect(c, wx - 1, wy - 7, 3, 3, C.skin)
+  rect(c, wx - 1, wy - 8, 3, 1, C.hair)
+  rect(c, wx - 1, wy - 4, 3, 3, "#f06a2e")
+  px(c, wx - 1 + step * 2, wy - 1, C.ol)
+
+  // foreground: buildings at the front corners, trees and a bench
+  building(c, 6, 84, 16, 11, CITY.arena, "dome", t)
+  building(c, 136, 86, 16, 12, CITY.academy, "gable", t)
+  cityTree(c, 30, 86, 5)
+  cityTree(c, 126, 82, 4)
+  cityTree(c, 8, 52, 4)
+  cityTree(c, 152, 54, 5)
+  cityTree(c, 96, 40, 3)
+  rect(c, 104, 86, 10, 2, CITY.trunk)
+  rect(c, 105, 88, 1, 2, CITY.trunk)
+  rect(c, 112, 88, 1, 2, CITY.trunk)
+
+  // Robo flying over the plaza, leaving sparkles
+  const rx = HUB_X + 26 + Math.round(Math.sin(t * 0.8) * 10)
+  const ry = 26 + Math.round(Math.sin(t * 2.4) * 2)
+  for (let i = 1; i <= 3; i++) {
+    if ((Math.floor(t * 6) + i) % 3 === 0) px(c, rx - Math.round(Math.cos(t * 0.8) * 4 * i), ry + 6 + i, C.lilacHi)
+  }
+  robo(c, rx, ry, t)
+
+  tag(c, "11 GAMES", 4, 4, C.white, C.lilacSh)
 }
 
 // ---------- School platform: four app windows inside one shell ----------

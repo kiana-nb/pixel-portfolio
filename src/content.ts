@@ -101,7 +101,7 @@ export const PROJECTS: Project[] = [
     kind: "gamified 3D learning, K-12",
     year: "2026 – now",
     role: "3D games and the asset pipeline",
-    summary: "A 3D open world with Three.js learning games, built to run on low-end phones.",
+    summary: "A 3D town for K-12 students where each building opens a Three.js learning game, built to run on low-end phones.",
     highlights: [
       "A 3D city and 11 Three.js game stages on a shared rendering library",
       "57% fewer draw calls and lights cut from 27 to 11 for a steady 30 fps",
