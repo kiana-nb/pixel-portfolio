@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { CERT_COUNT, CERT_GROUPS, certDate, type CertGroup } from "../certs"
 import { ABOUT, EXPERIENCE, ME, SKILLS, STATS, type Project, type SectionId } from "../content"
 import { Portrait } from "./pixels"
@@ -48,44 +48,6 @@ export function About() {
         <p key={p}>{p}</p>
       ))}
       <Stats />
-    </div>
-  )
-}
-
-const SPINES: [string, string][] = [
-  ["#e8718d", "#c94a6a"], ["#6cb4e8", "#3f88c5"], ["#ffd45e", "#d9a628"], ["#7fd1ae", "#3fa47f"],
-  ["#b497e8", "#7c5cc9"], ["#ffa66e", "#e07a3c"], ["#f58fa8", "#e0587a"],
-]
-
-// The skills panel in the room: one shelf per group, one book per skill, the name on the spine.
-export function Bookshelf() {
-  let n = 0
-  return (
-    <div className="bookcase">
-      {SKILLS.map((g) => (
-        <section key={g.group} className="shelf" aria-label={g.group}>
-          <h4 className="shelf-plate">{g.group}</h4>
-          <ul className="books">
-            {g.items.map((s) => {
-              const i = n++
-              const [col, band] = SPINES[(i * 3) % SPINES.length]
-              const style = {
-                "--c": col,
-                "--band": band,
-                "--h": `${Math.min(178, 92 + s.length * 7)}px`,
-                "--w": `${34 + (i % 3) * 4}px`,
-                "--i": i,
-              } as CSSProperties
-              return (
-                <li key={s} className={`book${i % 7 === 3 ? " lean" : ""}`} style={style}>
-                  <span className="spine">{s}</span>
-                </li>
-              )
-            })}
-            <li className="bookend" aria-hidden="true" />
-          </ul>
-        </section>
-      ))}
     </div>
   )
 }
@@ -238,7 +200,7 @@ export function Contact() {
 
 export const BODIES: Record<Exclude<SectionId, "projects">, () => React.JSX.Element> = {
   about: About,
-  skills: Bookshelf,
+  skills: Skills,
   certs: Certs,
   experience: Experience,
   contact: Contact,

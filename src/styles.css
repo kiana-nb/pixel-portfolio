@@ -186,7 +186,7 @@ html.room-full { overflow: hidden; }
   background: rgba(20, 10, 30, 0.55); animation: fade 0.15s;
 }
 .win {
-  min-width: 0; width: min(620px, 100%); max-height: min(86vh, 860px); display: flex; flex-direction: column;
+  width: min(620px, 100%); max-height: min(86vh, 860px); display: flex; flex-direction: column;
   background: var(--card); border: 4px solid var(--ink); box-shadow: 10px 10px 0 var(--shadow);
   animation: pop 0.2s steps(4); outline: none;
 }
@@ -215,48 +215,6 @@ html.room-full { overflow: hidden; }
 .chips li { font-size: 14px; font-weight: 600; padding: 2px 9px; background: var(--mint-soft); border: 2px solid var(--ink); }
 
 .skill-groups { display: grid; gap: 18px; }
-
-/* bookshelf: wooden case, one shelf per skill group, a book per skill */
-.bookcase {
-  --wood: #c08457; --wood-hi: #dca277; --wood-sh: #9a6440; --wood-dk: #6e4630;
-  display: grid; gap: 0; padding: 10px 12px 0; background: var(--wood-dk);
-  border: 4px solid #3b2a35; box-shadow: inset 0 0 0 4px var(--wood), 6px 6px 0 var(--shadow);
-}
-.shelf { position: relative; min-width: 0; padding: 30px 10px 0; }
-.shelf-plate {
-  position: absolute; top: 6px; left: 10px; z-index: 1;
-  font-family: var(--f-label); font-size: 10px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 2px 8px; color: #3b2a35; background: linear-gradient(#ffe79a, #e9b13a); border: 2px solid #3b2a35;
-}
-.books {
-  display: flex; align-items: flex-end; gap: 3px; list-style: none; margin: 0; padding: 16px 8px 0; min-height: 200px;
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
-  border-bottom: 12px solid var(--wood); box-shadow: 0 4px 0 var(--wood-sh), inset 0 -6px 10px rgba(0, 0, 0, 0.25);
-}
-.book {
-  flex: none; position: relative; width: var(--w); height: var(--h);
-  display: flex; align-items: center; justify-content: center;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0 3px, transparent 3px calc(100% - 4px), rgba(0, 0, 0, 0.18) calc(100% - 4px)),
-    linear-gradient(var(--band) 0 0) 0 12px / 100% 4px no-repeat,
-    linear-gradient(var(--band) 0 0) 0 calc(100% - 14px) / 100% 4px no-repeat,
-    var(--c);
-  border: 3px solid #3b2a35; border-bottom: 0;
-  transform-origin: bottom center;
-  transition: transform 0.15s steps(3);
-  animation: book-in 0.4s steps(4) backwards;
-  animation-delay: calc(var(--i) * 40ms);
-}
-.book.lean { transform: rotate(-6deg); margin: 0 6px; }
-.book:hover { transform: translateY(-12px); }
-.book.lean:hover { transform: translateY(-12px) rotate(-6deg); }
-.spine {
-  writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
-  font-family: var(--f-display); font-weight: 700; font-size: 15px; line-height: 1; color: #2c1f29;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.45);
-}
-.bookend { flex: none; align-self: flex-end; width: 18px; height: 70px; margin-left: 6px; background: #8d93a6; border: 3px solid #3b2a35; border-bottom: 0; clip-path: polygon(0 0, 100% 35%, 100% 100%, 0 100%); }
-@keyframes book-in { from { transform: translateY(14px); } }
 .skill-groups h4 { margin-bottom: 8px; }
 .certs { display: grid; gap: 20px; }
 .certs-summary { padding: 10px 14px; background: var(--card-2); border: 3px solid var(--ink); }
