@@ -49,6 +49,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [full, setFull] = useState(false)
   const [rotateHint, setRotateHint] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const gameRef = useRef<HTMLDivElement>(null)
   const fullRef = useRef(false)
   const realFullscreen = useRef(false)
@@ -348,12 +349,38 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     if (engineRef.current) engineRef.current.inserted = i
   }, [])
 
+  const go = (id: string) => {
+    setMenuOpen(false)
+    engineRef.current?.walkTo(id)
+  }
+  const jumpButtons = JUMPS.map((j) =>
+    scene === "street" && j.id === "door" ? (
+      <button key="home" type="button" className="btn small" onClick={() => go("home")}>
+        go home
+      </button>
+    ) : (
+      <button key={j.id} type="button" className="btn small" onClick={() => go(j.id)}>
+        {j.label}
+      </button>
+    ),
+  )
+
   const line = dialog ? dialog.lines[dialog.i] : ""
   const done = dialog ? dialog.shown >= line.length : false
 
   return (
     <div className={`game${full ? " is-full" : ""}`} ref={gameRef}>
       <div className="stage" ref={stageRef}>
+        {full && (
+          <button type="button" className="menu-btn" onClick={() => setMenuOpen((m) => !m)} aria-expanded={menuOpen} aria-label="Places in the room">
+            ☰
+          </button>
+        )}
+        {full && menuOpen && (
+          <nav className="menu-pop" aria-label="Visit a part of the room">
+            {jumpButtons}
+          </nav>
+        )}
         <button type="button" className="fs-btn" onClick={() => void toggleFull()} aria-label={full ? "Exit full screen" : "Full screen"} title={full ? "Exit full screen (F)" : "Full screen (F)"}>
           {full ? "⤡" : "⤢"}
         </button>
@@ -399,20 +426,12 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         )}
       </div>
 
-      <nav className="jumps" aria-label="Visit a part of the room">
-        <span className="jumps-label">go to</span>
-        {JUMPS.map((j) =>
-          scene === "street" && j.id === "door" ? (
-            <button key="home" type="button" className="btn small" onClick={() => engineRef.current?.walkTo("home")}>
-              go home
-            </button>
-          ) : (
-            <button key={j.id} type="button" className="btn small" onClick={() => engineRef.current?.walkTo(j.id)}>
-              {j.label}
-            </button>
-          ),
-        )}
-      </nav>
+      {!full && (
+        <nav className="jumps" aria-label="Visit a part of the room">
+          <span className="jumps-label">go to</span>
+          {jumpButtons}
+        </nav>
+      )}
 
       {panel && (
         <Panel title={TITLES[panel]} onClose={closePanel}>

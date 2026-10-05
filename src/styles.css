@@ -185,6 +185,17 @@ kbd {
   .game.is-full .jumps { display: none; }
   .game.is-full { padding-block: 8px; }
 }
+.menu-btn {
+  position: absolute; right: 56px; bottom: 10px; z-index: 5; width: 38px; height: 38px; padding: 0; cursor: pointer;
+  font-size: 20px; line-height: 1; color: #3b2a35; background: #fffaf4; border: 3px solid #3b2a35; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
+}
+.menu-btn[aria-expanded="true"] { background: #e8718d; color: #fff; }
+.menu-pop {
+  position: absolute; right: 10px; bottom: 56px; z-index: 5; display: grid; gap: 6px; padding: 8px; line-height: 1;
+  max-height: calc(100% - 70px); overflow-y: auto;
+  background: #fffaf4; border: 3px solid #3b2a35; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35); animation: pop 0.15s steps(3);
+}
+.menu-pop .btn { justify-content: flex-start; box-shadow: none; }
 .rotate-hint {
   position: absolute; inset: 0; z-index: 6; display: grid; place-content: center; justify-items: center; gap: 14px;
   padding: 16px; text-align: center; background: rgba(27, 20, 36, 0.86); color: #fff8f2;
