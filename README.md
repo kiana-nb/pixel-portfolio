@@ -12,6 +12,7 @@ My portfolio as a tiny indie game. Walk around a pixel-art room, pick a project 
 | Desk and monitor | Experience |
 | Frames on the wall | Certificates |
 | Mailbox by the door | Contact |
+| The door | Career Street outside |
 | Window | Day / night |
 | Record player | A small chiptune |
 | Flower pot at the far end | Water it until it blooms |
@@ -19,9 +20,11 @@ My portfolio as a tiny indie game. Walk around a pixel-art room, pick a project 
 | Yarn ball on the rug | Play fetch with the cat |
 | The cat | Pet it and it follows you around |
 
+Outside the door is **Career Street**: each building is a stop on my way so far (school, university, then each job), with the years painted on the sidewalk like a timeline. There's a car to drive around in, and an empty lot at the end waiting for the next stop.
+
 There are also nine secrets hidden in the room. The star counter in the corner keeps track and gives hints.
 
-Controls: `←` `→` or `A` `D` to walk, `E` to interact, `F` for full screen, or click / tap anywhere. The buttons under the room walk you straight to each part.
+Controls: `←` `→` or `A` `D` to walk, `Space` to jump, `E` to interact, `F` for full screen, or click / tap anywhere (tap Kiana to jump). The buttons under the room walk you straight to each part.
 
 ## How it's built
 

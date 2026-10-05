@@ -112,10 +112,10 @@ export function App() {
             <Game night={theme === "dark"} music={music} onToggleNight={toggleTheme} onToggleMusic={toggleMusic} />
             <p className="controls">
               {window.matchMedia("(pointer: coarse)").matches ? (
-                <>Tap anywhere to walk, tap things to look at them. In a hurry? </>
+                <>Tap anywhere to walk, tap things to look at them, tap Kiana to jump. In a hurry? </>
               ) : (
                 <>
-                  <kbd>←</kbd> <kbd>→</kbd> walk · <kbd>E</kbd> look · or just click. In a hurry?{" "}
+                  <kbd>←</kbd> <kbd>→</kbd> walk · <kbd>space</kbd> jump · <kbd>E</kbd> look · <kbd>F</kbd> full screen · or just click. In a hurry?{" "}
                 </>
               )}
               <a href="#quick" onClick={(e) => (e.preventDefault(), switchMode("quick"))}>

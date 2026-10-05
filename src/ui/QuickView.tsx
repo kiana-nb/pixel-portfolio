@@ -13,12 +13,14 @@ export function QuickView() {
           <p className="q-tagline">{ME.tagline}</p>
           <div className="q-contact">
             <ContactRows />
-            <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
-              GitHub ↗
-            </a>
-            <a className="btn" href={ME.linkedin} target="_blank" rel="noreferrer">
-              LinkedIn ↗
-            </a>
+            <div className="link-row">
+              <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
+                GitHub ↗
+              </a>
+              <a className="btn" href={ME.linkedin} target="_blank" rel="noreferrer">
+                LinkedIn ↗
+              </a>
+            </div>
           </div>
         </div>
       </section>

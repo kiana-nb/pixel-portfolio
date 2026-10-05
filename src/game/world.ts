@@ -15,6 +15,9 @@ export type ThingAction =
   | { kind: "feed" }
   | { kind: "play" }
   | { kind: "neon" }
+  | { kind: "go"; to: "room" | "street" }
+  | { kind: "career"; index: number }
+  | { kind: "drive" }
   | { kind: "say"; lines: string[] }
 
 export interface Thing {
@@ -41,7 +44,8 @@ export const THINGS: Thing[] = [
   { id: "bowl", label: "feed the cat", x: BOWL_X, hit: [BOWL_X - 9, 126, 18, 16], action: { kind: "feed" } },
   { id: "certs", label: "certificates", x: 484, hit: [448, 36, 64, 104], action: { kind: "section", id: "certs" } },
   { id: "music", label: "record player", x: 560, hit: [530, 44, 64, 96], action: { kind: "music" } },
-  { id: "door", label: "say hi", x: 660, hit: [618, 56, 82, 84], action: { kind: "section", id: "contact" } },
+  { id: "door", label: "go outside", x: 645, hit: [618, 56, 54, 84], action: { kind: "go", to: "street" } },
+  { id: "mailbox", label: "say hi", x: 687, hit: [674, 78, 28, 30], action: { kind: "section", id: "contact" } },
   { id: "plant2", label: "water the flower", x: 724, hit: [706, 70, 36, 70], action: { kind: "water" } },
 ]
 

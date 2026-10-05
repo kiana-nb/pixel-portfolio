@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { PROJECTS, type SectionId } from "../content"
+import { EXPERIENCE, PROJECTS, type SectionId } from "../content"
 import { sfx } from "../game/audio"
-import { Engine, type SecretId } from "../game/engine"
+import { Engine, type SceneId, type SecretId } from "../game/engine"
 import type { Thing } from "../game/world"
 import { Portrait } from "./pixels"
 import { ProjectsConsole } from "./ProjectsConsole"
@@ -22,7 +22,8 @@ const JUMPS: { id: string; label: string }[] = [
   { id: "shelf", label: "skills" },
   { id: "desk", label: "experience" },
   { id: "certs", label: "certificates" },
-  { id: "door", label: "say hi" },
+  { id: "mailbox", label: "say hi" },
+  { id: "door", label: "career street" },
 ]
 
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)]
@@ -47,6 +48,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [full, setFull] = useState(false)
+  const [rotateHint, setRotateHint] = useState(false)
   const gameRef = useRef<HTMLDivElement>(null)
   const fullRef = useRef(false)
   const realFullscreen = useRef(false)
@@ -54,6 +56,9 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const [found, setFound] = useState<Set<SecretKey>>(loadFound)
   const [toast, setToast] = useState<{ title: string; n: number } | null>(null)
   const [secretsOpen, setSecretsOpen] = useState(false)
+  const [career, setCareer] = useState<number | null>(null)
+  const [scene, setScene] = useState<SceneId>("room")
+  const seenStreet = useRef(false)
   const visited = useRef(new Set<string>())
   const typed = useRef<string[]>([])
   const secretsHere = SECRETS.filter((x) => !x.keyboard || !touch())
@@ -117,6 +122,12 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           sfx.blip(660)
           say(["You fill the bowl with crunchy fish bites.", "Someone heard that!"])
           break
+        case "career":
+          sfx.open()
+          setDialog(null)
+          setCareer(a.index)
+          visit("experience")
+          break
         case "play":
           sfx.blip(880)
           say(["You toss the yarn ball. Go get it!"])
@@ -152,10 +163,21 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     [say, visit],
   )
 
+  const onScene = useCallback(
+    (id: SceneId) => {
+      setScene(id)
+      if (id === "street" && !seenStreet.current) {
+        seenStreet.current = true
+        say(["Welcome to Career Street! ✿", "Each building is a stop on my way so far. The years are on the sidewalk.", "The mint car is yours. Hop in to get around faster."])
+      } else if (id === "room") say(["Home sweet home."])
+    },
+    [say],
+  )
+
   // engine lifecycle
   useEffect(() => {
     const canvas = canvasRef.current!
-    const engine = new Engine(canvas, promptRef.current!, { onInteract: (t) => onInteract(t), onAdvance: () => advance(), onSecret: (id: SecretId) => unlock(id) }, PROJECTS.map((p) => ({ label: p.label, stripe: p.stripe })))
+    const engine = new Engine(canvas, promptRef.current!, { onInteract: (t) => onInteract(t), onAdvance: () => advance(), onSecret: (id: SecretId) => unlock(id), onScene: (id: SceneId) => onScene(id) }, PROJECTS.map((p) => ({ label: p.label, stripe: p.stripe })))
     engineRef.current = engine
     if (import.meta.env.DEV) Object.assign(window, { __engine: engine })
     engine.setFound([...loadFound()].filter((x): x is SecretId => x !== "explorer"))
@@ -163,7 +185,8 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     const fit = () => {
       const w = stageRef.current?.clientWidth ?? 800
       // In full screen the room takes all the height except the row of buttons under it.
-      const h = fullRef.current ? window.innerHeight - (window.innerWidth < 760 ? 150 : 100) : Math.min(window.innerHeight * 0.72, 720)
+      const short = window.innerHeight < 520
+      const h = fullRef.current ? window.innerHeight - (short ? 24 : window.innerWidth < 760 ? 150 : 100) : Math.min(window.innerHeight * 0.72, 720)
       engine.resize(w, h)
     }
     fitRef.current = fit
@@ -174,8 +197,8 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     const hello = window.setTimeout(() => {
       say(
         touch()
-          ? ["hi, i'm Kiana! ✿ welcome to my room.", "Tap anywhere to walk. Tap things to look at them.", "My projects are the cartridges by the TV."]
-          : ["hi, i'm Kiana! ✿ welcome to my room.", "Walk with ← → or A D, or click anywhere.", "Press E near things. My projects are the cartridges by the TV."],
+          ? ["hi, i'm Kiana! ✿ welcome to my room.", "Tap anywhere to walk, tap things to look at them, and tap me to jump.", "My projects are the cartridges by the TV."]
+          : ["hi, i'm Kiana! ✿ welcome to my room.", "Walk with ← → or A D, jump with space, or click anywhere.", "Press E near things. My projects are the cartridges by the TV."],
       )
     }, reducedMotion() ? 0 : 1000)
     return () => {
@@ -185,11 +208,17 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
       engine.destroy()
       engineRef.current = null
     }
-  }, [onInteract, advance, say, unlock])
+  }, [onInteract, advance, say, unlock, onScene])
 
   // Full screen: the real Fullscreen API when the browser allows it, otherwise the room just covers the page.
   const toggleFull = useCallback(async () => {
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }
     if (fullRef.current) {
+      try {
+        orientation?.unlock?.()
+      } catch {
+        /* not supported */
+      }
       if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
       setFull(false)
       return
@@ -200,8 +229,22 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     } catch {
       realFullscreen.current = false
     }
+    // On phones, try to turn the room sideways; where that is not allowed, the rotate hint asks the visitor to.
+    if (touch()) await orientation?.lock?.("landscape").catch(() => {})
+    setRotateHint(touch() && window.matchMedia("(orientation: portrait)").matches)
     setFull(true)
   }, [])
+
+  // The hint goes away by itself once the phone is turned.
+  useEffect(() => {
+    if (!rotateHint) return
+    const mq = window.matchMedia("(orientation: portrait)")
+    const onChange = () => {
+      if (!mq.matches) setRotateHint(false)
+    }
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [rotateHint])
 
   useEffect(() => {
     const onChange = () => {
@@ -216,6 +259,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
 
   useEffect(() => {
     fullRef.current = full
+    if (!full) setRotateHint(false)
     document.documentElement.classList.toggle("room-full", full)
     fitRef.current()
     const id = requestAnimationFrame(() => fitRef.current())
@@ -238,8 +282,8 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     if (engineRef.current) engineRef.current.music = music
   }, [music])
   useEffect(() => {
-    if (engineRef.current) engineRef.current.paused = !!panel || consoleOpen || secretsOpen
-  }, [panel, consoleOpen, secretsOpen])
+    if (engineRef.current) engineRef.current.paused = !!panel || consoleOpen || secretsOpen || career !== null
+  }, [panel, consoleOpen, secretsOpen, career])
 
   // Typed secrets: the Konami code and the word "meow".
   useEffect(() => {
@@ -296,6 +340,10 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   }, [])
   const closeConsole = useCallback(() => setConsoleOpen(false), [])
   const closeSecrets = useCallback(() => setSecretsOpen(false), [])
+  const closeCareer = useCallback(() => {
+    sfx.close()
+    setCareer(null)
+  }, [])
   const insert = useCallback((i: number | null) => {
     if (engineRef.current) engineRef.current.inserted = i
   }, [])
@@ -312,6 +360,15 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         <button type="button" className="secrets-btn" onClick={() => setSecretsOpen(true)} aria-label={`Secrets found: ${found.size} of ${secretsHere.length}`}>
           ★ {found.size}/{secretsHere.length}
         </button>
+        {full && rotateHint && (
+          <div className="rotate-hint" role="status">
+            <span className="rotate-phone" aria-hidden="true" />
+            <p>Rotate your phone for a bigger room ↻</p>
+            <button type="button" className="btn small" onClick={() => setRotateHint(false)}>
+              keep it upright
+            </button>
+          </div>
+        )}
         {toast && (
           <div className="toast" role="status">
             <span className="toast-star" aria-hidden="true">★</span>
@@ -344,11 +401,17 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
 
       <nav className="jumps" aria-label="Visit a part of the room">
         <span className="jumps-label">go to</span>
-        {JUMPS.map((j) => (
-          <button key={j.id} type="button" className="btn small" onClick={() => engineRef.current?.walkTo(j.id)}>
-            {j.label}
-          </button>
-        ))}
+        {JUMPS.map((j) =>
+          scene === "street" && j.id === "door" ? (
+            <button key="home" type="button" className="btn small" onClick={() => engineRef.current?.walkTo("home")}>
+              go home
+            </button>
+          ) : (
+            <button key={j.id} type="button" className="btn small" onClick={() => engineRef.current?.walkTo(j.id)}>
+              {j.label}
+            </button>
+          ),
+        )}
       </nav>
 
       {panel && (
@@ -360,6 +423,33 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         </Panel>
       )}
       {consoleOpen && <ProjectsConsole onClose={closeConsole} onInsert={insert} bonus={found.has("konami")} />}
+      {career !== null && (
+        <Panel title={`career street · stop ${EXPERIENCE.length - career} of ${EXPERIENCE.length}`} onClose={closeCareer}>
+          {(() => {
+            const e = EXPERIENCE[career]
+            return (
+              <div className="career-stop">
+                <p className="when">{e.when}</p>
+                <h3 className="career-where">{e.where}</h3>
+                <p className="role-line">{e.what}</p>
+                {e.note && <p>{e.note}</p>}
+                <div className="link-row">
+                  {career < EXPERIENCE.length - 1 && (
+                    <button type="button" className="btn small" onClick={() => setCareer(career + 1)}>
+                      ◀ earlier stop
+                    </button>
+                  )}
+                  {career > 0 && (
+                    <button type="button" className="btn small" onClick={() => setCareer(career - 1)}>
+                      next stop ▶
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </Panel>
+      )}
       {secretsOpen && (
         <Panel title={`secrets · ${found.size}/${secretsHere.length}`} onClose={closeSecrets}>
           <ul className="secret-list">
