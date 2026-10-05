@@ -188,4 +188,10 @@ export const EXPERIENCE = [
     when: "2019 – 2023",
     note: "",
   },
+  {
+    where: "Sampad",
+    what: "School for gifted students",
+    when: "Sep 2013 – Jun 2019",
+    note: "National Organization for Development of Exceptional Talents.",
+  },
 ]
