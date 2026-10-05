@@ -10,8 +10,9 @@
     "build:artifact": "tsc --noEmit && node scripts/build-artifact.mjs"
   },
   "dependencies": {
+    "@fontsource/nunito": "^5.3.0",
+    "@fontsource/pixelify-sans": "^5.3.0",
     "@fontsource/silkscreen": "^5.1.0",
-    "@fontsource/vt323": "^5.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
