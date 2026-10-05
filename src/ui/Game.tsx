@@ -43,6 +43,11 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const [panel, setPanel] = useState<Exclude<SectionId, "projects"> | null>(null)
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [dialog, setDialog] = useState<Dialog | null>(null)
+  const [full, setFull] = useState(false)
+  const gameRef = useRef<HTMLDivElement>(null)
+  const fullRef = useRef(false)
+  const realFullscreen = useRef(false)
+  const fitRef = useRef<() => void>(() => {})
 
   // Latest values for the engine callbacks, which are created once.
   const live = useRef({ night, music, onToggleNight, onToggleMusic, dialog })
@@ -111,11 +116,15 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     engine.setNight(live.current.night, true)
     const fit = () => {
       const w = stageRef.current?.clientWidth ?? 800
-      engine.resize(w, Math.min(window.innerHeight * 0.72, 720))
+      // In full screen the room takes all the height except the row of buttons under it.
+      const h = fullRef.current ? window.innerHeight - (window.innerWidth < 760 ? 150 : 100) : Math.min(window.innerHeight * 0.72, 720)
+      engine.resize(w, h)
     }
+    fitRef.current = fit
     fit()
     const ro = new ResizeObserver(fit)
     ro.observe(stageRef.current!)
+    window.addEventListener("resize", fit)
     const hello = window.setTimeout(() => {
       say(
         touch()
@@ -125,11 +134,58 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     }, reducedMotion() ? 0 : 1000)
     return () => {
       window.clearTimeout(hello)
+      window.removeEventListener("resize", fit)
       ro.disconnect()
       engine.destroy()
       engineRef.current = null
     }
   }, [onInteract, advance, say])
+
+  // Full screen: the real Fullscreen API when the browser allows it, otherwise the room just covers the page.
+  const toggleFull = useCallback(async () => {
+    if (fullRef.current) {
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+      setFull(false)
+      return
+    }
+    try {
+      await gameRef.current?.requestFullscreen?.()
+      realFullscreen.current = !!document.fullscreenElement
+    } catch {
+      realFullscreen.current = false
+    }
+    setFull(true)
+  }, [])
+
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && realFullscreen.current) {
+        realFullscreen.current = false
+        setFull(false)
+      }
+    }
+    document.addEventListener("fullscreenchange", onChange)
+    return () => document.removeEventListener("fullscreenchange", onChange)
+  }, [])
+
+  useEffect(() => {
+    fullRef.current = full
+    document.documentElement.classList.toggle("room-full", full)
+    fitRef.current()
+    const id = requestAnimationFrame(() => fitRef.current())
+    return () => cancelAnimationFrame(id)
+  }, [full])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (panel || consoleOpen || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea")) return
+      if (e.key === "f" || e.key === "F") void toggleFull()
+      else if (e.key === "Escape" && fullRef.current && !document.fullscreenElement) setFull(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [panel, consoleOpen, toggleFull])
 
   useEffect(() => engineRef.current?.setNight(night), [night])
   useEffect(() => {
@@ -172,8 +228,11 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const done = dialog ? dialog.shown >= line.length : false
 
   return (
-    <div className="game">
+    <div className={`game${full ? " is-full" : ""}`} ref={gameRef}>
       <div className="stage" ref={stageRef}>
+        <button type="button" className="fs-btn" onClick={() => void toggleFull()} aria-label={full ? "Exit full screen" : "Full screen"} title={full ? "Exit full screen (F)" : "Full screen (F)"}>
+          {full ? "⤡" : "⤢"}
+        </button>
         <canvas ref={canvasRef} className="room" role="img" aria-label="Kiana's pixel room. Use the buttons below the room to visit each part." />
         <div className="prompt" ref={promptRef} hidden aria-hidden="true">
           <span className="key">E</span>
