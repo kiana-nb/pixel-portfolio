@@ -83,6 +83,8 @@ export class Engine {
   private nightTarget = 0
   private iris = 0
   private keys = new Set<string>()
+  private lastKey = ""
+  private lastKeyAt = 0
   private parts: Particle[] = []
   private hovered: Thing | null = null
   private near: Thing | null = null
@@ -213,10 +215,15 @@ export class Engine {
   private onKeyDown = (e: KeyboardEvent) => {
     if (this.paused || !this.visible || isInteractiveTarget(e.target)) return
     const k = e.key.toLowerCase()
+    const now = performance.now()
+    // An E straight after an M is someone typing "meow", not pressing the interact key.
+    const typingMeow = k === "e" && this.lastKey === "m" && now - this.lastKeyAt < 1000
+    this.lastKey = k
+    this.lastKeyAt = now
     if (k === "arrowleft" || k === "arrowright" || k === "a" || k === "d") {
       this.keys.add(k === "a" ? "arrowleft" : k === "d" ? "arrowright" : k)
       e.preventDefault()
-    } else if (k === "e" || k === "enter" || k === " ") {
+    } else if ((k === "e" && !typingMeow) || k === "enter" || k === " ") {
       e.preventDefault()
       if (e.repeat) return
       if (this.dialogOpen) this.cb.onAdvance()
