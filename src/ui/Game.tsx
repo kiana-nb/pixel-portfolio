@@ -94,10 +94,16 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           sfx.purr()
           say([pick(["mrrp! (=^･ω･^=)", "purrrr ♥", "mew? (=ↀωↀ=)"]), "The cat decides to follow you around."], "cat")
           break
-        case "water":
+        case "water": {
           sfx.water()
-          say([pick(["You water the plant. It looks happier ✿", "Glug glug. The leaves perk up."])])
+          const grew = engineRef.current?.lastGrowth ?? null
+          if (thing.id !== "plant2") say([pick(["You water the monstera. Its leaves look shinier.", "Glug glug. The big leaves perk up."])])
+          else if (grew === 1) say(["The sprout drinks it all up and stands a little taller."])
+          else if (grew === 2) say(["It's growing! Look, little buds.", "One more watering, maybe?"])
+          else if (grew === 3) say(["It bloomed! ✿", "Thank you for looking after it."])
+          else say(["It's in full bloom already. It just wants some sun now ☀"])
           break
+        }
         case "say":
           sfx.blip()
           say(a.lines)

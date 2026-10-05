@@ -33,7 +33,7 @@ export const THINGS: Thing[] = [
   { id: "certs", label: "certificates", x: 484, hit: [448, 36, 70, 104], action: { kind: "section", id: "certs" } },
   { id: "music", label: "record player", x: 560, hit: [530, 44, 64, 96], action: { kind: "music" } },
   { id: "door", label: "say hi", x: 660, hit: [618, 56, 82, 84], action: { kind: "section", id: "contact" } },
-  { id: "plant2", label: "water the plant", x: 724, hit: [708, 84, 32, 56], action: { kind: "water" } },
+  { id: "plant2", label: "water the flower", x: 724, hit: [706, 70, 36, 70], action: { kind: "water" } },
 ]
 
 // ---------- helpers ----------
@@ -251,18 +251,68 @@ function monstera(c: Ctx) {
   rect(c, 118, 129, 12, 1, C.potSh)
 }
 
-function snakePlant(c: Ctx) {
+// The pot at the far end; the plant in it grows when watered and is drawn every frame (drawFlower).
+function flowerPot(c: Ctx) {
   floorShadow(c, 712, 24)
-  const blades = [[716, 98], [720, 90], [724, 94], [728, 86], [732, 96]]
-  for (const [x, top] of blades) {
-    rect(c, x - 1, top - 1, 5, 124 - top, C.ol)
-    rect(c, x, top, 3, 123 - top, C.leaf)
-    rect(c, x, top, 1, 123 - top, C.leafHi)
-    for (let y = top + 4; y < 120; y += 7) rect(c, x, y, 3, 1, C.leafSh)
-  }
+  rect(c, 716, 117, 18, 4, "#7a4b31")
   box(c, 712, 120, 26, 20, C.peach, C.cream, C.peachSh)
   rect(c, 714, 126, 22, 1, C.peachSh)
   rect(c, 714, 131, 22, 1, C.peachSh)
+  // a little name tag stuck in the soil
+  rect(c, 732, 110, 1, 9, C.woodSh)
+  box(c, 729, 106, 8, 5, C.white)
+  px(c, 732, 108, C.pink)
+}
+
+export const FLOWER_X = 725
+
+// g goes from 0 (a droopy sprout) to 3 (in bloom); fractions animate the growth between stages.
+export function drawFlower(c: Ctx, g: number, t: number) {
+  const base = 118
+  const h = Math.round(7 + g * 11)
+  const sway = Math.sin(t * 1.4) * Math.min(1, g / 2)
+  const topX = FLOWER_X + Math.round(sway)
+  const droopy = g < 1
+  const leafCol = droopy ? "#9bbf5a" : C.leaf
+  // stem
+  line(c, FLOWER_X, base, topX, base - h, C.leafSh)
+  line(c, FLOWER_X + 1, base, topX + 1, base - h, droopy ? "#9bbf5a" : C.leafHi)
+  // leaves along the stem, alternating sides
+  const leaves = 1 + Math.floor(g * 1.4)
+  for (let i = 0; i < leaves; i++) {
+    const u = (i + 1) / (leaves + 1)
+    const y = Math.round(base - h * u)
+    const x = Math.round(FLOWER_X + sway * u)
+    const side = i % 2 ? 1 : -1
+    const lx = x + side * 4
+    const ly = y + (droopy ? 2 : 0)
+    ellipse(c, lx, ly, 4, 2, C.ol)
+    ellipse(c, lx, ly, 3, 1, leafCol)
+    px(c, lx - side, ly - 1, droopy ? "#c9db8a" : C.leafHi)
+  }
+  // buds, then flowers
+  if (g >= 1.8) {
+    const spots: [number, number][] = [[0, 0], [-6, 6], [6, 9]]
+    const open = Math.min(1, Math.max(0, g - 2.2) / 0.8)
+    spots.forEach(([dx, dy], i) => {
+      const fx = topX + dx
+      const fy = base - h + dy
+      if (dx) line(c, FLOWER_X + Math.round(sway * 0.6), fy + 4, fx, fy, C.leafSh)
+      if (open <= 0) {
+        disc(c, fx, fy, 2, C.ol)
+        disc(c, fx, fy, 1, C.rose)
+        return
+      }
+      const r = 1 + Math.round(open * 2)
+      const petal = [C.pink, C.sun, C.lilac][i]
+      disc(c, fx, fy, r + 1, C.ol)
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2 + t * 0.4
+        disc(c, fx + Math.round(Math.cos(a) * r), fy + Math.round(Math.sin(a) * r), Math.max(1, r - 1), petal)
+      }
+      disc(c, fx, fy, 1, C.gold)
+    })
+  }
 }
 
 // ---------- bookshelf ----------
@@ -635,7 +685,7 @@ export function drawStatic(c: Ctx) {
   certsCorner(c)
   musicCorner(c)
   doorCorner(c)
-  snakePlant(c)
+  flowerPot(c)
 }
 
 // ---------- window view, drawn behind the static layer ----------
@@ -715,6 +765,7 @@ export interface Scene {
   tvOn: boolean
   inserted: number | null
   cartColors: { label: string; stripe: string }[]
+  plantGrow: number
 }
 
 function cartridge(c: Ctx, x: number, base: number, label: string, stripe: string) {
@@ -744,6 +795,8 @@ function codeLine(c: Ctx, i: number, x: number, y: number) {
 
 export function drawAnimated(c: Ctx, s: Scene) {
   const { t } = s
+
+  drawFlower(c, s.plantGrow, t)
 
   // cartridges on the shelf; the inserted one is missing
   s.cartColors.forEach((cc, i) => {

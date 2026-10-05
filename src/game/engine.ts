@@ -1,6 +1,6 @@
 import { CAT_H, CAT_W, KIANA_H, KIANA_W, catFrames, kianaFrames } from "./actors"
-import { C, blit, ellipse, makeSprite, px, rect, text, type Ctx } from "./pixel"
-import { FEET_Y, THINGS, WORLD_H, WORLD_W, drawAnimated, drawSky, drawStatic, lights, type Scene, type Thing } from "./world"
+import { C, blit, box, ellipse, line, makeSprite, px, rect, text, type Ctx } from "./pixel"
+import { FEET_Y, FLOWER_X, THINGS, WORLD_H, WORLD_W, drawAnimated, drawSky, drawStatic, lights, type Scene, type Thing } from "./world"
 
 type ParticleKind = "heart" | "note" | "spark" | "puff" | "zzz" | "dust" | "drop"
 interface Particle {
@@ -23,7 +23,23 @@ export interface EngineCallbacks {
   onAdvance(): void
 }
 
-const CAT_THING: Thing = { id: "cat", label: "pet the cat", x: 0, hit: [0, 0, 0, 0], action: { kind: "pet" } }
+const PLANT_KEY = "kiana-room-flower"
+function loadPlantStage() {
+  try {
+    return Math.max(0, Math.min(3, Number(localStorage.getItem(PLANT_KEY)) || 0))
+  } catch {
+    return 0
+  }
+}
+function savePlantStage(n: number) {
+  try {
+    localStorage.setItem(PLANT_KEY, String(n))
+  } catch {
+    /* storage can be blocked */
+  }
+}
+
+const CAT_THING: Thing ={ id: "cat", label: "pet the cat", x: 0, hit: [0, 0, 0, 0], action: { kind: "pet" } }
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const isInteractiveTarget = (el: EventTarget | null) =>
   el instanceof HTMLElement && !!el.closest("button, a, input, textarea, select, [role=dialog]")
@@ -35,7 +51,13 @@ export class Engine {
   paused = false
   dialogOpen = false
   inserted: number | null = null
+  // The flower at the far end: 0 is a sprout, 3 is in bloom. Saved per visitor.
+  plantStage = loadPlantStage()
+  // Set when the last watering made the flower grow, so the dialog can say so.
+  lastGrowth: number | null = null
 
+  private plantGrow = this.plantStage
+  private pour: { t: number; thing: Thing } | null = null
   private ctx: Ctx
   private staticLayer: HTMLCanvasElement
   private lightLayer: HTMLCanvasElement
@@ -220,8 +242,49 @@ export class Engine {
     if (Math.abs(d) > 2) p.dir = d > 0 ? 1 : -1
     if (thing.action.kind === "pet") this.petCat()
     if (thing.action.kind === "water") {
-      for (let i = 0; i < 10; i++) this.spawn("drop", thing.x - 6 + Math.random() * 12, thing.hit[1] + 4, (Math.random() - 0.5) * 10, 20 + Math.random() * 20, 0.9, C.sky)
-      for (let i = 0; i < 6; i++) this.spawn("spark", thing.x - 10 + Math.random() * 20, thing.hit[1] + Math.random() * 20, 0, -8, 1, C.sun)
+      // Step back a little so the can reaches the pot, pour, and report when the pouring is done.
+      if (this.pour) return
+      p.x = clamp(thing.x - p.dir * 16, 12, WORLD_W - 12)
+      this.pour = { t: 1.4, thing }
+      this.lastGrowth = null
+      return
+    }
+    this.cb.onInteract(thing)
+  }
+
+  // Where the watering can is, relative to Kiana, and where its spout ends.
+  private canGeom() {
+    const p = this.player
+    const tilt = !!this.pour && this.pour.t < 1.2
+    const x0 = p.dir > 0 ? p.x + 5 : p.x - 12
+    const y0 = FEET_Y - 20
+    const sx = p.dir > 0 ? x0 + 7 : x0 - 1
+    return { x0, y0, sx, sy: y0 + 3, tipX: sx + p.dir * 5, tipY: tilt ? y0 + 7 : y0, tilt }
+  }
+
+  private updatePour(dt: number) {
+    const pour = this.pour
+    if (!pour) return
+    pour.t -= dt
+    const g = this.canGeom()
+    if (g.tilt && Math.random() < dt * 45) {
+      // The pot stands against the wall, higher on screen than Kiana's hands, so the water arcs into it.
+      const T = 0.42 + Math.random() * 0.06
+      const tx = pour.thing.id === "plant2" ? FLOWER_X - 5 + Math.random() * 10 : 119 + Math.random() * 10
+      const ty = pour.thing.id === "plant2" ? 118 : 121
+      this.spawn("drop", g.tipX, g.tipY, (tx - g.tipX) / T, (ty - g.tipY) / T - 60 * T, T, C.sky)
+    }
+    if (pour.t > 0) return
+    this.pour = null
+    const thing = pour.thing
+    if (thing.id === "plant2" && this.plantStage < 3) {
+      this.plantStage++
+      this.lastGrowth = this.plantStage
+      savePlantStage(this.plantStage)
+    }
+    const top = thing.id === "plant2" ? 118 - (7 + this.plantStage * 11) : thing.hit[1] + 6
+    for (let i = 0; i < (this.lastGrowth === 3 ? 14 : 6); i++) {
+      this.spawn("spark", thing.x - 10 + Math.random() * 20, top + Math.random() * 14, (Math.random() - 0.5) * 6, -10, 1.2, i % 2 ? C.sun : C.pinkHi)
     }
     this.cb.onInteract(thing)
   }
@@ -269,7 +332,11 @@ export class Engine {
     const left = this.keys.has("arrowleft")
     const right = this.keys.has("arrowright")
     let vx = 0
-    if (!this.paused && (left || right)) {
+    this.updatePour(dt)
+    this.plantGrow += clamp(this.plantStage - this.plantGrow, -dt * 0.7, dt * 0.7)
+    if (this.pour) {
+      // hands are busy
+    } else if (!this.paused && (left || right)) {
       p.target = null
       p.pending = null
       p.running = false
@@ -385,7 +452,7 @@ export class Engine {
 
   private updatePrompt() {
     const el = this.prompt
-    const thing = this.paused || this.dialogOpen ? null : this.hovered ?? this.near
+    const thing = this.paused || this.dialogOpen || this.pour ? null : this.hovered ?? this.near
     if (!thing) {
       el.hidden = true
       return
@@ -421,6 +488,7 @@ export class Engine {
       tvOn: near?.id === "tv",
       inserted: this.inserted,
       cartColors: this.cartColors,
+      plantGrow: this.plantGrow,
     }
     drawSky(c, this.night, scene.t, cam)
     c.drawImage(this.staticLayer, 0, 0)
@@ -456,6 +524,16 @@ export class Engine {
       bob = p.frame % 2 === 0 ? -1 : 0
     } else if (p.blinkT < 0) spr = kianaFrames.blink
     blit(c, spr, p.x - KIANA_W / 2, FEET_Y - KIANA_H + bob, p.dir < 0)
+    if (this.pour) {
+      const g = this.canGeom()
+      box(c, g.x0, g.y0, 7, 6, C.sky, C.skyHi, C.skySh)
+      rect(c, g.x0 + 1, g.y0 - 2, 5, 1, C.ol)
+      rect(c, g.x0 + 1, g.y0 - 2, 1, 2, C.ol)
+      rect(c, g.x0 + 5, g.y0 - 2, 1, 2, C.ol)
+      line(c, g.sx, g.sy, g.tipX, g.tipY, C.ol)
+      line(c, g.sx, g.sy - 1, g.tipX, g.tipY - 1, C.skySh)
+      rect(c, g.tipX - 1, g.tipY - 1, 2, 2, C.skySh)
+    }
   }
 
   private drawCat(c: Ctx) {
