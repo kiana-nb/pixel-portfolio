@@ -200,9 +200,25 @@ kbd {
 
 .skill-groups { display: grid; gap: 18px; }
 .skill-groups h4 { margin-bottom: 8px; }
-.cert-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
-.cert-list li { display: flex; gap: 10px; align-items: baseline; font-weight: 600; }
-.cert-list li::before { content: "★"; color: var(--sun); text-shadow: 1px 1px 0 var(--ink); }
+.certs { display: grid; gap: 20px; }
+.certs-summary { padding: 10px 14px; background: var(--card-2); border: 3px solid var(--ink); }
+.cert-group h4 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; font-size: 18px; margin-bottom: 10px; }
+.cert-issuer { font-family: var(--f-label); font-size: 10px; font-weight: 400; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.cert-count { margin-left: auto; font-family: var(--f-body); font-size: 13px; font-weight: 800; padding: 1px 8px; background: var(--accent); color: #fff; border: 2px solid var(--ink); }
+.cert-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.cert-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: baseline; }
+.cert-list li::before { content: "★"; grid-row: span 2; color: var(--sun); text-shadow: 1px 1px 0 var(--ink); }
+.cert-name { font-weight: 700; line-height: 1.35; }
+.cert-meta { display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
+.cert-meta a { font-weight: 700; }
+.cert-group details summary {
+  cursor: pointer; width: fit-content; margin-bottom: 10px; padding: 4px 10px;
+  font-family: var(--f-display); font-weight: 500; background: var(--card); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--shadow);
+}
+.cert-group details[open] summary { margin-bottom: 12px; }
+.contact-rows { display: grid; gap: 12px; }
+.copy-icon { font-size: 18px; color: var(--accent-2); }
+.copy-value { user-select: all; word-break: break-all; min-width: 0; font-weight: 800; color: var(--ink); text-decoration: none; }
 
 .timeline { list-style: none; margin: 0; padding: 0 0 0 20px; border-left: 4px solid var(--accent); display: grid; gap: 18px; }
 .timeline li { position: relative; }
@@ -212,7 +228,6 @@ kbd {
 .role-line { font-weight: 800; }
 
 .email { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px 8px 14px; background: var(--card-2); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--shadow); }
-.email span { user-select: all; word-break: break-all; min-width: 0; font-weight: 800; }
 .email .btn { margin-left: auto; }
 .link-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
@@ -287,6 +302,7 @@ kbd {
 .q-role { font-family: var(--f-display); font-weight: 500; font-size: 20px; color: var(--accent-2); }
 .q-tagline { color: var(--muted); font-weight: 600; }
 .q-contact { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.q-contact .contact-rows { flex: 1 1 100%; max-width: 520px; }
 .q-h2 { font-size: 30px; margin-bottom: 16px; }
 .q-h2::after { content: ""; display: block; width: 56px; height: 6px; margin-top: 8px; background: var(--accent); box-shadow: 3px 3px 0 var(--shadow); }
 .q-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 26px; }

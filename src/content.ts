@@ -25,6 +25,7 @@ export const ME = {
   role: "Frontend Developer / AI Product Engineer",
   tagline: "I take products from idea to production.",
   email: "kiana.nabipour07@gmail.com",
+  phone: "+98 992 870 2740",
   github: "https://github.com/kiana-nb",
   linkedin: "https://www.linkedin.com/in/kiana-nb",
 }
@@ -166,11 +167,6 @@ export const SKILLS: { group: string; items: string[] }[] = [
   { group: "Backend", items: ["Node.js", "NestJS", "MongoDB", "Redis", "Socket.IO", "Docker"] },
   { group: "AI", items: ["Claude", "Claude Code", "LangChain", "MCP", "Subagents", "Agent Skills"] },
   { group: "Quality", items: ["Playwright", "Sentry", "i18n + RTL", "Accessibility", "PWA"] },
-]
-
-export const CERTS: { org: string; items: string[] }[] = [
-  { org: "Anthropic", items: ["Claude Code in Action", "Agent Skills", "Subagents", "AI Fluency"] },
-  { org: "LinkedIn Learning", items: ["MCP: Hands-On with Agentic AI", "UX Foundations: Research"] },
 ]
 
 export const EXPERIENCE = [

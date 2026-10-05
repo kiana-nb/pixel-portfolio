@@ -1,6 +1,6 @@
 import { ME, PROJECTS } from "../content"
 import { Cover, Portrait } from "./pixels"
-import { Certs, EmailRow, Experience, ProjectDetails, Skills, Stats } from "./sections"
+import { Certs, ContactRows, Experience, ProjectDetails, Skills, Stats } from "./sections"
 
 export function QuickView() {
   return (
@@ -12,7 +12,7 @@ export function QuickView() {
           <p className="q-role">{ME.role}</p>
           <p className="q-tagline">{ME.tagline}</p>
           <div className="q-contact">
-            <EmailRow />
+            <ContactRows />
             <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
               GitHub ↗
             </a>

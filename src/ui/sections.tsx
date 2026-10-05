@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { ABOUT, CERTS, EXPERIENCE, ME, SKILLS, STATS, type Project, type SectionId } from "../content"
+import { CERT_COUNT, CERT_GROUPS, certDate, type CertGroup } from "../certs"
+import { ABOUT, EXPERIENCE, ME, SKILLS, STATS, type Project, type SectionId } from "../content"
 import { Portrait } from "./pixels"
 
 export const TITLES: Record<SectionId, string> = {
@@ -64,17 +65,49 @@ export function Skills() {
   )
 }
 
+function CertItems({ certs }: { certs: CertGroup["certs"] }) {
+  return (
+    <ul className="cert-list">
+      {certs.map((c) => (
+        <li key={c.name}>
+          <span className="cert-name">{c.name}</span>
+          <span className="cert-meta">
+            {certDate(c.date)}
+            {c.link && (
+              <a href={c.link} target="_blank" rel="noreferrer" aria-label={`Verify ${c.name}`}>
+                verify ↗
+              </a>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function Certs() {
   return (
-    <div className="skill-groups">
-      {CERTS.map((c) => (
-        <section key={c.org}>
-          <h4 className="eyebrow">{c.org}</h4>
-          <ul className="cert-list">
-            {c.items.map((i) => (
-              <li key={i}>{i}</li>
-            ))}
-          </ul>
+    <div className="certs">
+      <p className="certs-summary">
+        <strong>{CERT_COUNT} certificates</strong> from Anthropic Academy, LinkedIn Learning and Udemy, as listed on{" "}
+        <a href={`${ME.linkedin}/details/certifications/`} target="_blank" rel="noreferrer">
+          LinkedIn ↗
+        </a>
+      </p>
+      {CERT_GROUPS.map((g) => (
+        <section key={g.title} className="cert-group">
+          <h4>
+            {g.title} <span className="cert-issuer">{g.issuer}</span>
+            <span className="cert-count">{g.certs.length}</span>
+          </h4>
+          {g.collapsed ? (
+            <details>
+              <summary>Show all {g.certs.length}</summary>
+              <CertItems certs={g.certs} />
+            </details>
+          ) : (
+            <CertItems certs={g.certs} />
+          )}
         </section>
       ))}
     </div>
@@ -96,10 +129,10 @@ export function Experience() {
   )
 }
 
-// mailto links do not open everywhere, so the address is shown as selectable text with a copy button.
-export function EmailRow() {
+// mailto: and tel: links do not open everywhere, so values are shown as selectable text with a copy button.
+function CopyRow({ value, icon, href }: { value: string; icon: string; href?: string }) {
   const [copied, setCopied] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
+  const ref = useRef<HTMLElement>(null)
   const copy = () => {
     const selectText = () => {
       const sel = window.getSelection()
@@ -110,7 +143,7 @@ export function EmailRow() {
       sel.addRange(range)
     }
     try {
-      navigator.clipboard.writeText(ME.email).then(() => {
+      navigator.clipboard.writeText(value).then(() => {
         setCopied(true)
         setTimeout(() => setCopied(false), 1500)
       }, selectText)
@@ -120,10 +153,30 @@ export function EmailRow() {
   }
   return (
     <div className="email">
-      <span ref={ref}>{ME.email}</span>
+      <span className="copy-icon" aria-hidden="true">
+        {icon}
+      </span>
+      {href ? (
+        <a ref={ref as React.RefObject<HTMLAnchorElement>} href={href} className="copy-value" dir="ltr">
+          {value}
+        </a>
+      ) : (
+        <span ref={ref as React.RefObject<HTMLSpanElement>} className="copy-value" dir="ltr">
+          {value}
+        </span>
+      )}
       <button type="button" className="btn small" onClick={copy}>
         {copied ? "copied!" : "copy"}
       </button>
+    </div>
+  )
+}
+
+export function ContactRows() {
+  return (
+    <div className="contact-rows">
+      <CopyRow value={ME.email} icon="✉" />
+      <CopyRow value={ME.phone} icon="☎" href={`tel:${ME.phone.replace(/\s/g, "")}`} />
     </div>
   )
 }
@@ -132,7 +185,7 @@ export function Contact() {
   return (
     <div className="flow">
       <p>Got a product that needs an owner, or want to talk frontend, 3D or AI workflows? Say hi!</p>
-      <EmailRow />
+      <ContactRows />
       <div className="link-row">
         <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
           GitHub ↗
