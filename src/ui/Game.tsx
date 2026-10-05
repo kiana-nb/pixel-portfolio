@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { PROJECTS, type SectionId } from "../content"
 import { sfx } from "../game/audio"
-import { Engine } from "../game/engine"
+import { Engine, type SecretId } from "../game/engine"
 import type { Thing } from "../game/world"
 import { Portrait } from "./pixels"
 import { ProjectsConsole } from "./ProjectsConsole"
+import { SECRETS, loadFound, saveFound, type SecretKey } from "../secrets"
 import { BODIES, Panel, TITLES } from "./sections"
 
 type Speaker = "kiana" | "cat"
@@ -27,6 +28,8 @@ const JUMPS: { id: string; label: string }[] = [
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)]
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 const touch = () => window.matchMedia("(pointer: coarse)").matches
+const KONAMI = ["arrowup", "arrowup", "arrowdown", "arrowdown", "arrowleft", "arrowright", "arrowleft", "arrowright", "b", "a"]
+const ROOM_PARTS = ["about", "projects", "skills", "experience", "certs", "contact"]
 
 interface Props {
   night: boolean
@@ -48,6 +51,32 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const fullRef = useRef(false)
   const realFullscreen = useRef(false)
   const fitRef = useRef<() => void>(() => {})
+  const [found, setFound] = useState<Set<SecretKey>>(loadFound)
+  const [toast, setToast] = useState<{ title: string; n: number } | null>(null)
+  const [secretsOpen, setSecretsOpen] = useState(false)
+  const visited = useRef(new Set<string>())
+  const typed = useRef<string[]>([])
+  const secretsHere = SECRETS.filter((x) => !x.keyboard || !touch())
+
+  const foundRef = useRef(found)
+  const unlock = useCallback((id: SecretKey) => {
+    if (foundRef.current.has(id)) return
+    const next = new Set(foundRef.current).add(id)
+    foundRef.current = next
+    setFound(next)
+    saveFound(next)
+    const def = SECRETS.find((x) => x.id === id)
+    if (def) setToast({ title: def.title, n: next.size })
+    sfx.secret()
+  }, [])
+
+  const visit = useCallback(
+    (part: string) => {
+      visited.current.add(part)
+      if (ROOM_PARTS.every((p) => visited.current.has(p))) unlock("explorer")
+    },
+    [unlock],
+  )
 
   // Latest values for the engine callbacks, which are created once.
   const live = useRef({ night, music, onToggleNight, onToggleMusic, dialog })
@@ -76,11 +105,21 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           sfx.open()
           setDialog(null)
           setPanel(a.id as Exclude<SectionId, "projects">)
+          visit(a.id)
           break
         case "projects":
           sfx.open()
           setDialog(null)
           setConsoleOpen(true)
+          visit("projects")
+          break
+        case "feed":
+          sfx.blip(660)
+          say(["You fill the bowl with crunchy fish bites.", "Someone heard that!"])
+          break
+        case "play":
+          sfx.blip(880)
+          say(["You toss the yarn ball. Go get it!"])
           break
         case "theme":
           live.current.onToggleNight()
@@ -92,7 +131,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           break
         case "pet":
           sfx.purr()
-          say([pick(["mrrp! (=^･ω･^=)", "purrrr ♥", "mew? (=ↀωↀ=)"]), "The cat decides to follow you around."], "cat")
+          say([pick(["mrrp! (=^･ω･^=)", "purrrr ♥", "mew? (=ↀωↀ=)", "*happy tail swish*", "prrrt!"])], "cat")
           break
         case "water": {
           sfx.water()
@@ -110,15 +149,16 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           break
       }
     },
-    [say],
+    [say, visit],
   )
 
   // engine lifecycle
   useEffect(() => {
     const canvas = canvasRef.current!
-    const engine = new Engine(canvas, promptRef.current!, { onInteract: (t) => onInteract(t), onAdvance: () => advance() }, PROJECTS.map((p) => ({ label: p.label, stripe: p.stripe })))
+    const engine = new Engine(canvas, promptRef.current!, { onInteract: (t) => onInteract(t), onAdvance: () => advance(), onSecret: (id: SecretId) => unlock(id) }, PROJECTS.map((p) => ({ label: p.label, stripe: p.stripe })))
     engineRef.current = engine
     if (import.meta.env.DEV) Object.assign(window, { __engine: engine })
+    engine.setFound([...loadFound()].filter((x): x is SecretId => x !== "explorer"))
     engine.setNight(live.current.night, true)
     const fit = () => {
       const w = stageRef.current?.clientWidth ?? 800
@@ -145,7 +185,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
       engine.destroy()
       engineRef.current = null
     }
-  }, [onInteract, advance, say])
+  }, [onInteract, advance, say, unlock])
 
   // Full screen: the real Fullscreen API when the browser allows it, otherwise the room just covers the page.
   const toggleFull = useCallback(async () => {
@@ -198,8 +238,37 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     if (engineRef.current) engineRef.current.music = music
   }, [music])
   useEffect(() => {
-    if (engineRef.current) engineRef.current.paused = !!panel || consoleOpen
-  }, [panel, consoleOpen])
+    if (engineRef.current) engineRef.current.paused = !!panel || consoleOpen || secretsOpen
+  }, [panel, consoleOpen, secretsOpen])
+
+  // Typed secrets: the Konami code and the word "meow".
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (panel || consoleOpen || secretsOpen || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea")) return
+      const k = e.key.toLowerCase()
+      const buf = [...typed.current, k].slice(-KONAMI.length)
+      typed.current = buf
+      if (KONAMI.every((x, i) => buf[i] === x)) {
+        typed.current = []
+        engineRef.current?.unlockBonus()
+        say(["A golden cartridge just appeared on top of the TV! ★"])
+      } else if (buf.slice(-4).join("") === "meow") {
+        typed.current = []
+        sfx.meow()
+        engineRef.current?.meow()
+        say(["MEOW! (=^･ω･^=)", "The cat seems to understand you."], "cat")
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [panel, consoleOpen, secretsOpen, say])
+
+  useEffect(() => {
+    if (!toast) return
+    const id = window.setTimeout(() => setToast(null), 3400)
+    return () => window.clearTimeout(id)
+  }, [toast])
   useEffect(() => {
     if (engineRef.current) engineRef.current.dialogOpen = !!dialog
   }, [dialog])
@@ -226,6 +295,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     setPanel(null)
   }, [])
   const closeConsole = useCallback(() => setConsoleOpen(false), [])
+  const closeSecrets = useCallback(() => setSecretsOpen(false), [])
   const insert = useCallback((i: number | null) => {
     if (engineRef.current) engineRef.current.inserted = i
   }, [])
@@ -239,6 +309,20 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         <button type="button" className="fs-btn" onClick={() => void toggleFull()} aria-label={full ? "Exit full screen" : "Full screen"} title={full ? "Exit full screen (F)" : "Full screen (F)"}>
           {full ? "⤡" : "⤢"}
         </button>
+        <button type="button" className="secrets-btn" onClick={() => setSecretsOpen(true)} aria-label={`Secrets found: ${found.size} of ${secretsHere.length}`}>
+          ★ {found.size}/{secretsHere.length}
+        </button>
+        {toast && (
+          <div className="toast" role="status">
+            <span className="toast-star" aria-hidden="true">★</span>
+            <span>
+              Secret found: <strong>{toast.title}</strong>
+            </span>
+            <span className="toast-count">
+              {toast.n}/{secretsHere.length}
+            </span>
+          </div>
+        )}
         <canvas ref={canvasRef} className="room" role="img" aria-label="Kiana's pixel room. Use the buttons below the room to visit each part." />
         <div className="prompt" ref={promptRef} hidden aria-hidden="true">
           <span className="key">E</span>
@@ -275,7 +359,27 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
           })()}
         </Panel>
       )}
-      {consoleOpen && <ProjectsConsole onClose={closeConsole} onInsert={insert} />}
+      {consoleOpen && <ProjectsConsole onClose={closeConsole} onInsert={insert} bonus={found.has("konami")} />}
+      {secretsOpen && (
+        <Panel title={`secrets · ${found.size}/${secretsHere.length}`} onClose={closeSecrets}>
+          <ul className="secret-list">
+            {secretsHere.map((x) => {
+              const got = found.has(x.id)
+              return (
+                <li key={x.id} className={got ? "got" : ""}>
+                  <span className="secret-star" aria-hidden="true">
+                    {got ? "★" : "?"}
+                  </span>
+                  <span>
+                    <strong>{got ? x.title : "???"}</strong>
+                    <span className="muted">{got ? x.found : `Hint: ${x.hint}`}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </Panel>
+      )}
     </div>
   )
 }

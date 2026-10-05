@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react"
 import { PROJECTS } from "../content"
 import { sfx } from "../game/audio"
+import { FishCatch } from "./FishCatch"
 import { Cover } from "./pixels"
 import { Panel, ProjectDetails } from "./sections"
 
@@ -9,17 +10,21 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 interface Props {
   onClose: () => void
   onInsert: (index: number | null) => void
-  initial?: number | null
+  // The golden bonus cartridge appears once its secret is found.
+  bonus: boolean
 }
 
-export function ProjectsConsole({ onClose, onInsert, initial = null }: Props) {
-  const [sel, setSel] = useState<number | null>(initial)
+export function ProjectsConsole({ onClose, onInsert, bonus }: Props) {
+  const [sel, setSel] = useState<number | null>(null)
   const [booting, setBooting] = useState(false)
+  const count = PROJECTS.length + (bonus ? 1 : 0)
+  const isBonus = sel === PROJECTS.length
 
   const choose = useCallback(
     (i: number) => {
       setSel(i)
-      onInsert(i)
+      // The room's shelf only holds the project cartridges.
+      onInsert(i < PROJECTS.length ? i : null)
       sfx.open()
       if (reducedMotion()) return
       setBooting(true)
@@ -35,21 +40,19 @@ export function ProjectsConsole({ onClose, onInsert, initial = null }: Props) {
   }, [onClose, onInsert])
 
   useEffect(() => {
-    if (initial !== null) onInsert(initial)
-  }, [initial, onInsert])
-
-  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While the bonus game runs, the arrow keys move the cat.
+      if (isBonus && !booting) return
       const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0
       if (!step) return
       e.preventDefault()
-      choose(((sel ?? -step) + step + PROJECTS.length) % PROJECTS.length)
+      choose(((sel ?? -step) + step + count) % count)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [sel, choose])
+  }, [sel, choose, count, isBonus, booting])
 
-  const p = sel === null ? null : PROJECTS[sel]
+  const p = sel === null || isBonus ? null : PROJECTS[sel]
 
   return (
     <Panel title="cartridges · pick a game" onClose={close} className="console">
@@ -72,19 +75,36 @@ export function ProjectsConsole({ onClose, onInsert, initial = null }: Props) {
               </button>
             </li>
           ))}
+          {bonus && (
+            <li>
+              <button
+                type="button"
+                className={`cart bonus${isBonus ? " inserted" : ""}`}
+                style={{ "--label": "#ffcf4a", "--stripe": "#d9a020" } as CSSProperties}
+                aria-pressed={isBonus}
+                onClick={() => choose(PROJECTS.length)}
+              >
+                <span className="cart-shell" aria-hidden="true">
+                  <span className="cart-label">★</span>
+                </span>
+                <span className="cart-name">Fish Catch</span>
+                <span className="cart-kind">bonus game · secret</span>
+              </button>
+            </li>
+          )}
         </ul>
 
         <div className="tv">
           <div className="tv-screen" aria-live="polite">
-            {!p && (
+            {sel === null && (
               <div className="tv-idle">
                 <p className="blink">▶ insert a cartridge</p>
                 <p className="muted">Pick a project on the shelf, or use the arrow keys.</p>
               </div>
             )}
-            {p && booting && (
+            {sel !== null && booting && (
               <div className="tv-boot" aria-hidden="true">
-                <span>LOADING {p.name.toUpperCase()}</span>
+                <span>LOADING {(p?.name ?? "FISH CATCH").toUpperCase()}</span>
               </div>
             )}
             {p && !booting && (
@@ -93,16 +113,21 @@ export function ProjectsConsole({ onClose, onInsert, initial = null }: Props) {
                 <ProjectDetails p={p} />
               </div>
             )}
+            {isBonus && !booting && (
+              <div className="tv-content">
+                <FishCatch />
+              </div>
+            )}
           </div>
-          {p && (
+          {sel !== null && (
             <div className="tv-nav">
-              <button type="button" className="btn small" onClick={() => choose((sel! - 1 + PROJECTS.length) % PROJECTS.length)}>
+              <button type="button" className="btn small" onClick={() => choose((sel - 1 + count) % count)}>
                 ◀ prev
               </button>
               <span className="muted">
-                {sel! + 1} / {PROJECTS.length}
+                {sel + 1} / {count}
               </span>
-              <button type="button" className="btn small" onClick={() => choose((sel! + 1) % PROJECTS.length)}>
+              <button type="button" className="btn small" onClick={() => choose((sel + 1) % count)}>
                 next ▶
               </button>
             </div>

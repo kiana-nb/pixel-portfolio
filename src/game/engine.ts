@@ -1,8 +1,11 @@
 import { CAT_H, CAT_W, KIANA_H, KIANA_W, catFrames, kianaFrames } from "./actors"
-import { C, blit, box, ellipse, line, makeSprite, px, rect, text, type Ctx } from "./pixel"
-import { FEET_Y, FLOWER_X, THINGS, WORLD_H, WORLD_W, drawAnimated, drawSky, drawStatic, lights, type Scene, type Thing } from "./world"
+import { C, blit, box, ellipse, line, makeSprite, px, rect, text, textWidth, type Ctx } from "./pixel"
+import {
+  BOWL_X, FEET_Y, FLOWER_X, THINGS, WORLD_H, WORLD_W, cartridge, drawAnimated, drawBowl, drawSky, drawStatic, drawYarn, lights,
+  type Scene, type Thing,
+} from "./world"
 
-type ParticleKind = "heart" | "note" | "spark" | "puff" | "zzz" | "dust" | "drop"
+type ParticleKind = "heart" | "note" | "spark" | "puff" | "zzz" | "dust" | "drop" | "confetti" | "label"
 interface Particle {
   x: number
   y: number
@@ -12,15 +15,20 @@ interface Particle {
   max: number
   kind: ParticleKind
   col: string
+  str?: string
 }
+
+export type SecretId = "bestie" | "foodie" | "fetch" | "bloom" | "party" | "lvlup" | "konami" | "meow"
 
 const HEART = makeSprite("p-heart", ["hh.hh", "hhhhh", ".hhh.", "..h.."], { h: C.pink })
 const NOTE_A = makeSprite("p-noteA", ["..oo", "..o.", "..o.", "ooo.", "oo.."], { o: C.pinkSh })
 const NOTE_B = makeSprite("p-noteB", ["..oo", "..o.", "..o.", "ooo.", "oo.."], { o: C.lilacSh })
+const CONFETTI = [C.pink, C.sun, C.mint, C.sky, C.lilac]
 
 export interface EngineCallbacks {
   onInteract(thing: Thing): void
   onAdvance(): void
+  onSecret(id: SecretId): void
 }
 
 const PLANT_KEY = "kiana-room-flower"
@@ -39,10 +47,16 @@ function savePlantStage(n: number) {
   }
 }
 
-const CAT_THING: Thing ={ id: "cat", label: "pet the cat", x: 0, hit: [0, 0, 0, 0], action: { kind: "pet" } }
+const CAT_THING: Thing = { id: "cat", label: "pet the cat", x: 0, hit: [0, 0, 0, 0], action: { kind: "pet" } }
+const YARN_THING: Thing = { id: "yarn", label: "toss the yarn ball", x: 0, hit: [0, 0, 0, 0], action: { kind: "play" } }
+const LANE = FEET_Y + 3
+const BED = { x: 92, feet: 113 }
+const BOWL_FEET = 137
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const isInteractiveTarget = (el: EventTarget | null) =>
   el instanceof HTMLElement && !!el.closest("button, a, input, textarea, select, [role=dialog]")
+
+type CatMode = "sleep" | "nap" | "jump" | "follow" | "toBowl" | "eat" | "chase" | "happy"
 
 export class Engine {
   scale = 3
@@ -76,6 +90,13 @@ export class Engine {
   private observer: IntersectionObserver
   private reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   private touch = window.matchMedia("(pointer: coarse)").matches
+  private secrets = new Set<SecretId>()
+  private pets = 0
+  private posterLooks = 0
+  private neonTaps: number[] = []
+  private neonFlash = 0
+  private bowlFood = 0
+  private yarn = { x: 288, vx: 0, roll: 0 }
   private player = {
     x: 206,
     dir: 1 as 1 | -1,
@@ -84,14 +105,17 @@ export class Engine {
     stepT: 0,
     frame: 0,
     blinkT: 2,
+    jumpT: 0,
     target: null as number | null,
     pending: null as Thing | null,
   }
   private cat = {
-    x: 92,
-    feet: 113,
-    mode: "sleep" as "sleep" | "jump" | "follow" | "nap",
+    x: BED.x,
+    feet: BED.feet,
+    mode: "sleep" as CatMode,
+    after: "follow" as CatMode,
     jumpT: 0,
+    jumpLen: 0.55,
     from: [0, 0],
     to: [0, 0],
     dir: -1 as 1 | -1,
@@ -99,6 +123,9 @@ export class Engine {
     idleFor: 0,
     animT: 0,
     zT: 0,
+    timer: 0,
+    flipT: 0,
+    pounced: false,
   }
 
   constructor(
@@ -158,13 +185,27 @@ export class Engine {
     if (instant || this.reduced) this.night = this.nightTarget
   }
 
+  // Secrets the visitor already found on an earlier visit, so they are not announced again.
+  setFound(ids: Iterable<SecretId>) {
+    for (const id of ids) this.secrets.add(id)
+  }
+
   walkTo(id: string) {
-    const thing = id === "cat" ? this.catThing() : THINGS.find((t) => t.id === id)
+    const thing = this.findThing(id)
     if (!thing) return
     const p = this.player
     p.target = thing.x
     p.pending = thing
     p.running = Math.abs(thing.x - p.x) > 90
+  }
+
+  // The cat answers when the visitor types "meow".
+  meow() {
+    const k = this.cat
+    this.say("MEOW!", k.x, k.feet - CAT_H - 8, C.pinkSh)
+    for (let i = 0; i < 3; i++) this.spawn("heart", k.x - 4 + Math.random() * 8, k.feet - CAT_H - 2, (Math.random() - 0.5) * 14, -16, 1.2, C.pink)
+    if (k.mode === "sleep" || k.mode === "nap") this.wakeCat("follow")
+    this.secret("meow")
   }
 
   // ---------- input ----------
@@ -195,9 +236,21 @@ export class Engine {
     return [this.camX + ((e.clientX - r.left) / r.width) * this.viewW, ((e.clientY - r.top) / r.height) * WORLD_H]
   }
 
+  private dynamicThings(): Thing[] {
+    const k = this.cat
+    const y = this.yarn
+    return [
+      { ...CAT_THING, x: Math.round(k.x), hit: [k.x - 10, k.feet - CAT_H - 2, 20, CAT_H + 4] },
+      { ...YARN_THING, x: Math.round(y.x), hit: [y.x - 7, LANE - 12, 14, 14] },
+    ]
+  }
+
+  private findThing(id: string) {
+    return [...this.dynamicThings(), ...THINGS].find((t) => t.id === id)
+  }
+
   private thingAt(wx: number, wy: number): Thing | null {
-    const cat = this.catThing()
-    for (const t of [cat, ...THINGS]) {
+    for (const t of [...this.dynamicThings(), ...THINGS]) {
       const [x, y, w, h] = t.hit
       if (wx >= x && wx < x + w && wy >= y && wy < y + h) return t
     }
@@ -231,25 +284,71 @@ export class Engine {
 
   // ---------- actions ----------
 
-  private catThing(): Thing {
-    const k = this.cat
-    return { ...CAT_THING, x: Math.round(k.x), hit: [k.x - 10, k.feet - CAT_H - 2, 20, CAT_H + 4] }
+  private secret(id: SecretId) {
+    if (this.secrets.has(id)) return
+    this.secrets.add(id)
+    this.cb.onSecret(id)
   }
 
   private interact(thing: Thing) {
     const p = this.player
     const d = thing.x - p.x
     if (Math.abs(d) > 2) p.dir = d > 0 ? 1 : -1
-    if (thing.action.kind === "pet") this.petCat()
-    if (thing.action.kind === "water") {
-      // Step back a little so the can reaches the pot, pour, and report when the pouring is done.
-      if (this.pour) return
-      p.x = clamp(thing.x - p.dir * 16, 12, WORLD_W - 12)
-      this.pour = { t: 1.4, thing }
-      this.lastGrowth = null
-      return
+    switch (thing.action.kind) {
+      case "pet":
+        this.petCat()
+        break
+      case "water":
+        // Step back a little so the can reaches the pot, pour, and report when the pouring is done.
+        if (this.pour) return
+        p.x = clamp(thing.x - p.dir * 16, 12, WORLD_W - 12)
+        this.pour = { t: 1.4, thing }
+        this.lastGrowth = null
+        return
+      case "feed":
+        this.feedCat()
+        break
+      case "play":
+        this.tossYarn()
+        break
+      case "neon":
+        this.tapNeon()
+        return
+      case "say":
+        if (thing.id === "poster" && ++this.posterLooks === 3) this.levelUp()
+        break
     }
     this.cb.onInteract(thing)
+  }
+
+  private tapNeon() {
+    const now = this.t
+    this.neonFlash = 0.25
+    this.neonTaps = [...this.neonTaps.filter((x) => now - x < 4), now]
+    for (let i = 0; i < 3; i++) this.spawn("spark", 228 + Math.random() * 24, 34 + Math.random() * 8, 0, -6, 0.6, C.pinkHi)
+    if (this.neonTaps.length >= 5) {
+      this.neonTaps = []
+      this.unlockBonus()
+    }
+  }
+
+  // The bonus cartridge: Konami code on a keyboard, or five quick taps on the GAMES sign.
+  unlockBonus() {
+    for (let i = 0; i < 24; i++) {
+      this.spawn("confetti", 200 + Math.random() * 80, 40 + Math.random() * 10, (Math.random() - 0.5) * 50, -20 - Math.random() * 30, 1.6, CONFETTI[i % CONFETTI.length])
+    }
+    this.say("BONUS!", 240, 28, C.goldSh)
+    this.secret("konami")
+  }
+
+  private levelUp() {
+    const p = this.player
+    p.jumpT = 0.8
+    this.say("LVL UP!", p.x, FEET_Y - KIANA_H - 14, C.lilacSh)
+    for (let i = 0; i < 26; i++) {
+      this.spawn("confetti", p.x - 10 + Math.random() * 20, FEET_Y - KIANA_H - 4, (Math.random() - 0.5) * 60, -30 - Math.random() * 30, 1.6, CONFETTI[i % CONFETTI.length])
+    }
+    this.secret("lvlup")
   }
 
   // Where the watering can is, relative to Kiana, and where its spout ends.
@@ -287,22 +386,186 @@ export class Engine {
       this.spawn("spark", thing.x - 10 + Math.random() * 20, top + Math.random() * 14, (Math.random() - 0.5) * 6, -10, 1.2, i % 2 ? C.sun : C.pinkHi)
     }
     this.cb.onInteract(thing)
+    if (this.lastGrowth === 3) this.secret("bloom")
+  }
+
+  // ---------- the cat ----------
+
+  private catJump(toX: number, toFeet: number, after: CatMode, len = 0.55) {
+    const k = this.cat
+    k.from = [k.x, k.feet]
+    k.to = [clamp(toX, 12, WORLD_W - 12), toFeet]
+    k.jumpT = 0
+    k.jumpLen = len
+    k.after = after
+    k.mode = "jump"
+  }
+
+  // From the bed or a nap: hop down to the floor lane, then do `next`.
+  private wakeCat(next: CatMode) {
+    const k = this.cat
+    if (k.feet < LANE - 2) {
+      const side = this.player.x > k.x ? 14 : -14
+      this.catJump(k.x + side, LANE, next)
+    } else {
+      k.mode = next
+      k.idleFor = 0
+    }
   }
 
   private petCat() {
     const k = this.cat
+    this.pets++
     for (let i = 0; i < 5; i++) this.spawn("heart", k.x - 4 + Math.random() * 8, k.feet - CAT_H - 2, (Math.random() - 0.5) * 16, -18 - Math.random() * 10, 1.3, C.pink)
     if (k.mode === "sleep" || k.mode === "nap") {
-      k.mode = "jump"
-      k.jumpT = 0
-      k.from = [k.x, k.feet]
       const side = this.player.x > 60 ? -18 : 18
-      k.to = [clamp(this.player.x + side, 12, WORLD_W - 12), FEET_Y + 3]
+      this.catJump(this.player.x + side, LANE, "follow")
+      return
+    }
+    if (this.pets % 10 === 0) {
+      // every tenth pet: a backflip
+      k.flipT = 0.8
+      for (let i = 0; i < 12; i++) this.spawn("heart", k.x - 6 + Math.random() * 12, k.feet - CAT_H, (Math.random() - 0.5) * 40, -30 - Math.random() * 20, 1.5, C.pink)
+      this.secret("bestie")
+    } else if (k.mode === "follow") {
+      k.mode = "happy"
+      k.timer = 1.4
     }
   }
 
+  private feedCat() {
+    this.bowlFood = 1
+    const k = this.cat
+    if (k.mode === "eat") return
+    if (k.mode === "jump") k.after = "toBowl"
+    else this.wakeCat("toBowl")
+  }
+
+  private tossYarn() {
+    const p = this.player
+    const y = this.yarn
+    let dir: number = p.dir
+    if (y.x < 60) dir = 1
+    if (y.x > WORLD_W - 60) dir = -1
+    y.vx = dir * (150 + Math.random() * 40)
+    this.say("FETCH!", p.x, FEET_Y - KIANA_H - 8, C.pinkSh)
+    const k = this.cat
+    if (k.mode === "eat" || k.mode === "toBowl") return
+    if (k.mode === "jump") k.after = "chase"
+    else this.wakeCat("chase")
+  }
+
+  private updateCat(dt: number) {
+    const k = this.cat
+    const p = this.player
+    k.animT += dt
+    k.flipT = Math.max(0, k.flipT - dt)
+    const party = this.music && this.night > 0.8
+    switch (k.mode) {
+      case "sleep":
+      case "nap": {
+        k.zT -= dt
+        if (k.zT < 0 && !this.reduced) {
+          k.zT = 1.6
+          this.spawn("zzz", k.x + 5, k.feet - CAT_H - 1, 3, -6, 2, C.lilacSh)
+        }
+        if (k.mode === "nap" && Math.abs(p.x - k.x) > 70) this.wakeCat("follow")
+        break
+      }
+      case "jump": {
+        k.jumpT = Math.min(1, k.jumpT + dt / k.jumpLen)
+        const u = k.jumpT
+        k.x = k.from[0] + (k.to[0] - k.from[0]) * u
+        k.feet = k.from[1] + (k.to[1] - k.from[1]) * u - Math.sin(u * Math.PI) * 16
+        if (Math.abs(k.to[0] - k.from[0]) > 1) k.dir = k.to[0] > k.from[0] ? 1 : -1
+        if (u >= 1) {
+          k.feet = k.to[1]
+          k.mode = k.after
+          k.idleFor = 0
+          if (k.mode === "eat") k.timer = 2.8
+          if (k.mode === "happy") k.timer = 1.6
+          if (k.mode === "happy" && k.pounced) {
+            k.pounced = false
+            k.timer = 2.2
+            this.yarn.vx = k.dir * 40
+            for (let i = 0; i < 6; i++) this.spawn("heart", k.x - 4 + Math.random() * 8, k.feet - CAT_H, (Math.random() - 0.5) * 18, -20, 1.2, C.pink)
+            this.secret("fetch")
+          }
+        }
+        break
+      }
+      case "toBowl": {
+        const d = BOWL_X - 2 - k.x
+        if (Math.abs(d) > 12) {
+          k.x += Math.sign(d) * Math.min(Math.abs(d), 120 * dt)
+          k.dir = d > 0 ? 1 : -1
+          k.moving = true
+        } else {
+          k.moving = false
+          this.catJump(BOWL_X - 2, BOWL_FEET, "eat", 0.45)
+        }
+        break
+      }
+      case "eat": {
+        k.timer -= dt
+        this.bowlFood = Math.max(0, k.timer / 2.8)
+        if (Math.random() < dt * 3) this.say("NOM", k.x + (Math.random() < 0.5 ? -8 : 8), k.feet - CAT_H - 2, C.peachSh)
+        if (k.timer <= 0) {
+          this.bowlFood = 0
+          for (let i = 0; i < 5; i++) this.spawn("heart", k.x - 4 + Math.random() * 8, k.feet - CAT_H, (Math.random() - 0.5) * 16, -18, 1.2, C.pink)
+          this.secret("foodie")
+          this.catJump(k.x - 16, LANE, "happy")
+        }
+        break
+      }
+      case "chase": {
+        const y = this.yarn
+        const d = y.x - k.x
+        if (Math.abs(d) < 22 && Math.abs(y.vx) < 30) {
+          k.pounced = true
+          this.catJump(y.x - Math.sign(d || 1) * 6, LANE, "happy", 0.4)
+        } else {
+          k.x += Math.sign(d) * Math.min(Math.abs(d), 140 * dt)
+          k.dir = d > 0 ? 1 : -1
+          k.moving = true
+        }
+        break
+      }
+      case "happy": {
+        k.moving = false
+        k.timer -= dt
+        if (k.timer <= 0) k.mode = "follow"
+        break
+      }
+      case "follow": {
+        const goal = p.x - p.dir * 22
+        const d = goal - k.x
+        if (Math.abs(d) > 4) {
+          const sp = p.running ? 200 : 74
+          k.x += Math.sign(d) * Math.min(Math.abs(d), sp * dt)
+          k.dir = d > 0 ? 1 : -1
+          k.moving = true
+          k.idleFor = 0
+        } else {
+          k.moving = false
+          k.idleFor += dt
+          if (k.idleFor > 16 && !party) {
+            k.mode = "nap"
+            k.zT = 0.5
+          }
+        }
+        break
+      }
+    }
+  }
+
+  private say(str: string, x: number, y: number, col: string) {
+    this.spawn("label", x, y, 0, -10, 1.3, col)
+    this.parts[this.parts.length - 1].str = str
+  }
+
   private spawn(kind: ParticleKind, x: number, y: number, vx: number, vy: number, life: number, col: string) {
-    if (this.parts.length > 160) return
+    if (this.parts.length > 220) this.parts.shift()
     this.parts.push({ kind, x, y, vx, vy, life, max: life, col })
   }
 
@@ -326,12 +589,15 @@ export class Engine {
     const step = 1.4 * dt
     this.night += clamp(this.nightTarget - this.night, -step, step)
     this.iris = Math.min(1, this.iris + dt / 1.1)
+    this.neonFlash = Math.max(0, this.neonFlash - dt)
+    if (this.music && this.night > 0.8) this.secret("party")
 
     // player
     const p = this.player
     const left = this.keys.has("arrowleft")
     const right = this.keys.has("arrowright")
     let vx = 0
+    p.jumpT = Math.max(0, p.jumpT - dt)
     this.updatePour(dt)
     this.plantGrow += clamp(this.plantStage - this.plantGrow, -dt * 0.7, dt * 0.7)
     if (this.pour) {
@@ -349,7 +615,7 @@ export class Engine {
         p.running = false
         const pending = p.pending
         p.pending = null
-        if (pending) this.interact(pending.id === "cat" ? this.catThing() : pending)
+        if (pending) this.interact(this.findThing(pending.id) ?? pending)
       } else vx = Math.sign(d)
     }
     if (vx) {
@@ -374,7 +640,8 @@ export class Engine {
     // what the player can interact with
     let best: Thing | null = null
     let bestD = 17
-    for (const t of [this.catThing(), ...THINGS]) {
+    for (const t of [...this.dynamicThings(), ...THINGS]) {
+      if (t.clickOnly) continue
       const d = Math.abs(t.x - p.x)
       if (d < bestD) {
         best = t
@@ -382,6 +649,19 @@ export class Engine {
       }
     }
     this.near = best
+
+    // the yarn ball rolls and slows down, bouncing off the walls
+    const y = this.yarn
+    if (y.vx) {
+      y.x += y.vx * dt
+      y.roll += Math.abs(y.vx) * dt * 0.25
+      const slow = 110 * dt
+      y.vx = Math.abs(y.vx) <= slow ? 0 : y.vx - Math.sign(y.vx) * slow
+      if (y.x < 14 || y.x > WORLD_W - 14) {
+        y.x = clamp(y.x, 14, WORLD_W - 14)
+        y.vx = -y.vx * 0.6
+      }
+    }
 
     this.updateCat(dt)
 
@@ -397,6 +677,10 @@ export class Engine {
       q.x += q.vx * dt
       q.y += q.vy * dt
       if (q.kind === "drop") q.vy += 120 * dt
+      if (q.kind === "confetti") {
+        q.vy += 70 * dt
+        q.vx *= 0.97
+      }
       if (q.kind === "heart" || q.kind === "note") q.vx *= 0.98
     }
     this.parts = this.parts.filter((q) => q.life > 0)
@@ -406,48 +690,6 @@ export class Engine {
     this.camX += (target - this.camX) * (this.reduced ? 1 : 1 - Math.pow(0.002, dt))
 
     this.updatePrompt()
-  }
-
-  private updateCat(dt: number) {
-    const k = this.cat
-    const p = this.player
-    k.animT += dt
-    if (k.mode === "sleep" || k.mode === "nap") {
-      k.zT -= dt
-      if (k.zT < 0 && !this.reduced) {
-        k.zT = 1.6
-        this.spawn("zzz", k.x + 5, k.feet - CAT_H - 1, 3, -6, 2, C.lilacSh)
-      }
-      if (k.mode === "nap" && Math.abs(p.x - k.x) > 70) k.mode = "follow"
-    } else if (k.mode === "jump") {
-      k.jumpT = Math.min(1, k.jumpT + dt / 0.55)
-      const u = k.jumpT
-      k.x = k.from[0] + (k.to[0] - k.from[0]) * u
-      k.feet = k.from[1] + (k.to[1] - k.from[1]) * u - Math.sin(u * Math.PI) * 16
-      k.dir = k.to[0] > k.from[0] ? 1 : -1
-      if (u >= 1) {
-        k.mode = "follow"
-        k.feet = FEET_Y + 3
-        k.idleFor = 0
-      }
-    } else {
-      const goal = p.x - p.dir * 22
-      const d = goal - k.x
-      if (Math.abs(d) > 4) {
-        const sp = p.running ? 200 : 74
-        k.x += Math.sign(d) * Math.min(Math.abs(d), sp * dt)
-        k.dir = d > 0 ? 1 : -1
-        k.moving = true
-        k.idleFor = 0
-      } else {
-        k.moving = false
-        k.idleFor += dt
-        if (k.idleFor > 16) {
-          k.mode = "nap"
-          k.zT = 0.5
-        }
-      }
-    }
   }
 
   private updatePrompt() {
@@ -493,7 +735,16 @@ export class Engine {
     drawSky(c, this.night, scene.t, cam)
     c.drawImage(this.staticLayer, 0, 0)
     drawAnimated(c, scene)
-    this.drawCat(c)
+    if (this.neonFlash > 0) text(c, "GAMES", 240 - Math.floor(textWidth("GAMES") / 2), 36, C.white)
+    drawBowl(c, this.bowlFood)
+    // the golden bonus cartridge waits on top of the TV once unlocked
+    if (this.secrets.has("konami")) cartridge(c, 216, 84, C.gold, C.goldSh)
+
+    // back to front: the cat when it is up on furniture, the yarn, then whoever is nearer the viewer
+    const k = this.cat
+    if (k.feet < LANE - 2) this.drawCat(c)
+    drawYarn(c, this.yarn.x, LANE, this.yarn.roll)
+    if (k.feet >= LANE - 2) this.drawCat(c)
     this.drawPlayer(c)
     this.drawParticles(c, false)
 
@@ -516,14 +767,27 @@ export class Engine {
 
   private drawPlayer(c: Ctx) {
     const p = this.player
+    const party = this.music && this.night > 0.8
+    const beat = Math.floor(this.t * (100 / 60) * 2)
     ellipse(c, p.x, FEET_Y, 7, 1, "rgba(59,42,53,.22)")
     let spr = kianaFrames.idle
     let bob = 0
+    let flip = p.dir < 0
     if (p.walking) {
       spr = [kianaFrames.walkA, kianaFrames.idle, kianaFrames.walkB, kianaFrames.idle][p.frame]
       bob = p.frame % 2 === 0 ? -1 : 0
+    } else if (party && !this.pour) {
+      // dance to the record
+      spr = beat % 2 ? kianaFrames.walkA : kianaFrames.walkB
+      bob = beat % 2 ? -1 : 0
+      flip = Math.floor(beat / 4) % 2 === 0
     } else if (p.blinkT < 0) spr = kianaFrames.blink
-    blit(c, spr, p.x - KIANA_W / 2, FEET_Y - KIANA_H + bob, p.dir < 0)
+    if (p.jumpT > 0) {
+      const u = 1 - p.jumpT / 0.8
+      bob -= Math.round(Math.sin(u * Math.PI) * 12)
+      flip = Math.floor(u * 4) % 2 === 0
+    }
+    blit(c, spr, p.x - KIANA_W / 2, FEET_Y - KIANA_H + bob, flip)
     if (this.pour) {
       const g = this.canGeom()
       box(c, g.x0, g.y0, 7, 6, C.sky, C.skyHi, C.skySh)
@@ -538,23 +802,39 @@ export class Engine {
 
   private drawCat(c: Ctx) {
     const k = this.cat
-    const onFloor = k.mode !== "sleep" && k.feet > 150
-    if (onFloor) ellipse(c, k.x, FEET_Y + 3, 7, 1, "rgba(59,42,53,.2)")
+    if (k.feet >= LANE - 2) ellipse(c, k.x, LANE, 7, 1, "rgba(59,42,53,.2)")
     const asleep = k.mode === "sleep" || k.mode === "nap"
-    const swish = Math.floor(k.animT / (k.moving ? 0.18 : 0.5)) % 2 === 0
+    const eating = k.mode === "eat"
+    const happy = k.mode === "happy" || k.flipT > 0
+    const swish = Math.floor(k.animT / (k.moving || happy ? 0.18 : 0.5)) % 2 === 0
     const tail = swish ? catFrames.tailA : catFrames.tailB
-    const bob = k.moving && Math.floor(k.animT / 0.12) % 2 === 0 ? -1 : 0
+    const musicBob = this.music && !k.moving && !asleep && Math.floor(this.t * (100 / 60) * 2) % 2 === 0 ? 1 : 0
+    const bob = k.moving && Math.floor(k.animT / 0.12) % 2 === 0 ? -1 : musicBob
     const breathe = asleep && Math.floor(k.animT / 1.2) % 2 === 0 ? 1 : 0
-    const top = k.feet - CAT_H + bob
+    let top = k.feet - CAT_H + bob + (eating ? 2 : 0)
+    const face = asleep || eating ? catFrames.sleepy : happy ? catFrames.happy : catFrames.awake
+
+    if (k.flipT > 0) {
+      // backflip in four pixel-art steps
+      const u = 1 - k.flipT / 0.8
+      top -= Math.round(Math.sin(u * Math.PI) * 14)
+      c.save()
+      c.translate(Math.round(k.x), Math.round(top + CAT_H / 2))
+      c.rotate(Math.floor(u * 4) * (Math.PI / 2) * -k.dir)
+      c.drawImage(face, -CAT_W / 2, -CAT_H / 2)
+      c.restore()
+      return
+    }
     const tailX = k.dir > 0 ? k.x - CAT_W / 2 - 3 : k.x + CAT_W / 2 - 2
     blit(c, asleep ? catFrames.tailA : tail, tailX, top + 7, k.dir > 0)
-    blit(c, asleep ? catFrames.sleepy : catFrames.awake, k.x - CAT_W / 2, top + breathe)
+    blit(c, face, k.x - CAT_W / 2, top + breathe)
+    if (eating) drawBowl(c, this.bowlFood)
   }
 
   private drawParticles(c: Ctx, glowing: boolean) {
     for (const q of this.parts) {
       const a = Math.min(1, q.life / (q.max * 0.5))
-      const isGlow = q.kind === "spark" || q.kind === "note"
+      const isGlow = q.kind === "spark" || q.kind === "note" || q.kind === "label" || q.kind === "confetti"
       if (isGlow !== glowing) continue
       c.globalAlpha = a
       switch (q.kind) {
@@ -566,6 +846,17 @@ export class Engine {
           break
         case "zzz":
           text(c, "Z", q.x, q.y, q.col)
+          break
+        case "label": {
+          const s = q.str ?? ""
+          const w = textWidth(s)
+          rect(c, q.x - Math.floor(w / 2) - 2, q.y - 2, w + 4, 9, C.white)
+          rect(c, q.x - Math.floor(w / 2) - 2, q.y + 7, w + 4, 1, C.ol)
+          text(c, s, q.x - Math.floor(w / 2), q.y, q.col)
+          break
+        }
+        case "confetti":
+          rect(c, q.x, q.y, Math.floor(q.life * 8) % 2 ? 2 : 1, Math.floor(q.life * 8) % 2 ? 1 : 2, q.col)
           break
         case "spark":
           if (Math.floor(q.life * 10) % 2) {
@@ -611,6 +902,14 @@ export class Engine {
     lc.fillRect(0, 0, this.viewW, WORLD_H)
     lc.globalCompositeOperation = "destination-out"
     const ls = lights(scene)
+    // a dance party: coloured spots sweep the floor while the record plays at night
+    if (this.music && n > 0.8) {
+      const cols: [number, number, number][] = [[255, 120, 180], [120, 200, 255], [255, 220, 120]]
+      cols.forEach((rgb, i) => {
+        const x = cam + this.viewW / 2 + Math.sin(this.t * (0.9 + i * 0.3) + i * 2) * this.viewW * 0.4
+        ls.push({ x, y: 160, r: 34, rgb, power: 0.8 })
+      })
+    }
     for (const L of ls) {
       const sx = L.x - cam
       if (sx + L.r < 0 || sx - L.r > this.viewW) continue

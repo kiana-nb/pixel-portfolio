@@ -12,6 +12,9 @@ export type ThingAction =
   | { kind: "music" }
   | { kind: "pet" }
   | { kind: "water" }
+  | { kind: "feed" }
+  | { kind: "play" }
+  | { kind: "neon" }
   | { kind: "say"; lines: string[] }
 
 export interface Thing {
@@ -20,17 +23,23 @@ export interface Thing {
   x: number
   hit: [number, number, number, number]
   action: ThingAction
+  // Only reachable by clicking or tapping, never the nearest thing for the E key.
+  clickOnly?: boolean
 }
+
+export const BOWL_X = 521
 
 export const THINGS: Thing[] = [
   { id: "journal", label: "about me", x: 53, hit: [44, 104, 18, 12], action: { kind: "section", id: "about" } },
   { id: "window", label: "day / night", x: 70, hit: [26, 18, 76, 72], action: { kind: "theme" } },
   { id: "plant", label: "water the plant", x: 124, hit: [110, 86, 26, 54], action: { kind: "water" } },
   { id: "shelf", label: "skills", x: 160, hit: [132, 44, 56, 96], action: { kind: "section", id: "skills" } },
+  { id: "neon", label: "GAMES sign", x: 240, hit: [226, 31, 30, 13], action: { kind: "neon" }, clickOnly: true },
   { id: "tv", label: "projects", x: 240, hit: [196, 30, 88, 110], action: { kind: "projects" } },
   { id: "poster", label: "poster", x: 306, hit: [288, 28, 36, 48], action: { kind: "say", lines: ["A poster that says LVL UP!", "One commit at a time."] } },
   { id: "desk", label: "experience", x: 388, hit: [328, 36, 110, 104], action: { kind: "section", id: "experience" } },
-  { id: "certs", label: "certificates", x: 484, hit: [448, 36, 70, 104], action: { kind: "section", id: "certs" } },
+  { id: "bowl", label: "feed the cat", x: BOWL_X, hit: [BOWL_X - 9, 126, 18, 16], action: { kind: "feed" } },
+  { id: "certs", label: "certificates", x: 484, hit: [448, 36, 64, 104], action: { kind: "section", id: "certs" } },
   { id: "music", label: "record player", x: 560, hit: [530, 44, 64, 96], action: { kind: "music" } },
   { id: "door", label: "say hi", x: 660, hit: [618, 56, 82, 84], action: { kind: "section", id: "contact" } },
   { id: "plant2", label: "water the flower", x: 724, hit: [706, 70, 36, 70], action: { kind: "water" } },
@@ -768,7 +777,7 @@ export interface Scene {
   plantGrow: number
 }
 
-function cartridge(c: Ctx, x: number, base: number, label: string, stripe: string) {
+export function cartridge(c: Ctx, x: number, base: number, label: string, stripe: string) {
   const y = base - 11
   rect(c, x, y, 9, 11, C.ol)
   rect(c, x + 1, y + 1, 7, 9, C.grey)
@@ -916,4 +925,35 @@ export function lights(s: Scene): Light[] {
 
 export function drawSprite(c: Ctx, spr: HTMLCanvasElement, x: number, y: number, flip = false) {
   blit(c, spr, x, y, flip)
+}
+
+// ---------- the cat's things: food bowl and yarn ball ----------
+
+export function drawBowl(c: Ctx, food: number) {
+  const x = BOWL_X
+  ellipse(c, x, 140, 9, 2, "rgba(59,42,53,.18)")
+  rect(c, x - 8, 134, 16, 1, C.ol)
+  rect(c, x - 8, 135, 16, 4, C.ol)
+  rect(c, x - 7, 135, 14, 3, C.sky)
+  rect(c, x - 7, 135, 14, 1, C.skyHi)
+  rect(c, x - 6, 139, 12, 1, C.ol)
+  // a little fish on the side
+  rect(c, x - 2, 136, 3, 1, C.white)
+  px(c, x + 2, 136, C.white)
+  if (food > 0) {
+    const w = Math.max(2, Math.round(12 * food))
+    const kibble = ["#b9795a", "#8f5a40", "#d99a6c"]
+    for (let i = 0; i < w; i++) px(c, x - Math.floor(w / 2) + i, 133 - (i % 2), kibble[i % 3])
+  }
+}
+
+export function drawYarn(c: Ctx, x: number, feet: number, roll: number) {
+  const y = feet - 4
+  disc(c, x, y, 4, C.ol)
+  disc(c, x, y, 3, C.pink)
+  const k = Math.floor(roll) % 2
+  line(c, x - 2, y - 2 + k, x + 2, y + 1 - k, C.pinkHi)
+  line(c, x - 2, y + 1, x + 1, y - 2, C.pinkSh)
+  // a loose end of yarn
+  line(c, x + 3, y + 3, x + 7, y + 4, C.pinkSh)
 }

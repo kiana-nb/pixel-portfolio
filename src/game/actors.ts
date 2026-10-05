@@ -83,6 +83,12 @@ const CAT_SLEEPY = [...CAT_TOP]
 CAT_SLEEPY[5] = mirror(["occccccc"])[0]
 CAT_SLEEPY[6] = mirror(["occooccc"])[0]
 
+// Content face: ^ ^ eyes and blushing cheeks.
+const CAT_HAPPY = [...CAT_SLEEPY]
+CAT_HAPPY[5] = mirror(["occcoccc"])[0]
+CAT_HAPPY[6] = mirror(["occococc"])[0]
+CAT_HAPPY[7] = mirror(["ownccccn"])[0]
+
 const CAT_BODY = mirror(["..occccc", ".occcwww", ".occcwww", ".oCccwww", ".oCcowwo", "..oooooo"])
 
 export const CAT_W = 16
@@ -91,6 +97,7 @@ export const CAT_H = 15
 export const catFrames = {
   awake: makeSprite("c-awake", [...CAT_TOP, ...CAT_BODY], CAT_PAL),
   sleepy: makeSprite("c-sleepy", [...CAT_SLEEPY, ...CAT_BODY], CAT_PAL),
+  happy: makeSprite("c-happy", [...CAT_HAPPY, ...CAT_BODY], CAT_PAL),
   tailA: makeSprite("c-tailA", ["..oo.", ".occo", ".oco.", "oco..", "oco..", "occo.", ".ooo."], CAT_PAL),
   tailB: makeSprite("c-tailB", [".oo..", "occo.", ".oco.", "..oco", "..oco", ".occo", ".ooo."], CAT_PAL),
 }

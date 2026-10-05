@@ -52,6 +52,28 @@ export const sfx = {
     for (let i = 0; i < 4; i++) tone(70 + (i % 2) * 6, t + i * 0.09, 0.09, "triangle", 0.12)
     tone(1320, t, 0.08, "square", 0.03)
   },
+  meow() {
+    if (!this.enabled) return
+    const a = audio()
+    const o = a.createOscillator()
+    const g = a.createGain()
+    const t = a.currentTime
+    o.type = "triangle"
+    o.frequency.setValueAtTime(700, t)
+    o.frequency.linearRampToValueAtTime(980, t + 0.12)
+    o.frequency.linearRampToValueAtTime(560, t + 0.38)
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(0.09, t + 0.04)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42)
+    o.connect(g).connect(master!)
+    o.start(t)
+    o.stop(t + 0.45)
+  },
+  secret() {
+    if (!this.enabled) return
+    const t = audio().currentTime
+    ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.08, 0.16, "square", 0.045))
+  },
   water() {
     if (!this.enabled) return
     const t = audio().currentTime
