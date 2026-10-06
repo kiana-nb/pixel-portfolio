@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
-import { ME, PROJECTS } from "../content"
+import { ABOUT, ME, PROJECTS } from "../content"
 import { CRAFTS, FAVORITES, READING, SPORTS } from "../offclock"
 import { Cover, Portrait } from "./pixels"
+import { ResumeCard } from "./Resume"
 import { Certs, ContactRows, Education, Experience, KindWords, Languages, ProjectDetails, Skills, Stats } from "./sections"
 
 // Sections the nav can jump to. The URL hash already switches play / quick view,
@@ -122,6 +123,11 @@ export function QuickView() {
           <h1 id="q-name">{ME.name}</h1>
           <p className="q-role">{ME.role}</p>
           <p className="q-tagline">{ME.tagline}</p>
+          <div className="q-about">
+            {ABOUT.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+          </div>
           <div className="q-contact">
             <ContactRows />
             <div className="link-row">
@@ -134,6 +140,7 @@ export function QuickView() {
             </div>
           </div>
         </div>
+        <ResumeCard showcase />
       </section>
 
       <SectionNav />
