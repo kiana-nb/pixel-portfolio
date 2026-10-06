@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { ME, PROJECTS } from "../content"
 import { CRAFTS, FAVORITES, READING, SPORTS } from "../offclock"
 import { Cover, Portrait } from "./pixels"
-import { ResumeCard } from "./Resume"
+import { ResumeButton } from "./Resume"
 import { Certs, ContactRows, Education, Experience, KindWords, Languages, ProjectDetails, Skills, Stats } from "./sections"
 
 // Sections the nav can jump to. The URL hash already switches play / quick view,
@@ -126,6 +126,7 @@ export function QuickView() {
           <div className="q-contact">
             <ContactRows />
             <div className="link-row">
+              <ResumeButton />
               <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
                 GitHub ↗
               </a>
@@ -135,7 +136,6 @@ export function QuickView() {
             </div>
           </div>
         </div>
-        <ResumeCard showcase />
       </section>
 
       <SectionNav />
