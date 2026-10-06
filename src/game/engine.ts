@@ -1,8 +1,8 @@
-import { CAT_H, CAT_W, KIANA_H, KIANA_W, SIT_H, catFrames, kianaFrames } from "./actors"
+import { CAT_H, CAT_W, KIANA_H, KIANA_W, SIT_H, catFrames, drawCatExtra, kianaFrames, kianaFramesFor, type KianaFrames, type KianaLook } from "./actors"
 import { C, blit, box, ellipse, line, makeSprite, px, rect, text, textWidth, type Ctx } from "./pixel"
-import { CAR_START, CAR_Y, STREET_THINGS, STREET_W, drawCar, drawStreetAnimated, drawStreetSky, drawStreetStatic, streetLights } from "./street"
+import { CAR_START, CAR_Y, LANE_LOCK_X, STREET_THINGS, STREET_W, drawCar, drawLaneLock, drawStreetAnimated, drawStreetSky, drawStreetStatic, streetLights } from "./street"
 import {
-  BOWL_X, FEET_Y, FLOWER_X, THINGS, WORLD_H, WORLD_W, cartridge, drawAnimated, drawBowl, drawSky, drawStatic, drawYarn, lights,
+  BOWL_X, FEET_Y, FLOWER_X, NOOK_LOCK_X, THINGS, WORLD_H, WORLD_W, cartridge, drawAnimated, drawBowl, drawNookLock, drawSky, drawStatic, drawYarn, lights,
   type Light, type Scene, type Thing,
 } from "./world"
 
@@ -19,7 +19,7 @@ interface Particle {
   str?: string
 }
 
-export type SecretId = "bestie" | "foodie" | "fetch" | "bloom" | "party" | "lvlup" | "konami" | "meow"
+export type SecretId = "bestie" | "foodie" | "fetch" | "bloom" | "party" | "lvlup" | "konami" | "meow" | "dreamer"
 export type SceneId = "room" | "street"
 
 const HEART = makeSprite("p-heart", ["hh.hh", "hhhhh", ".hhh.", "..h.."], { h: C.pink })
@@ -83,6 +83,11 @@ export class Engine {
   // Set when the last watering made the flower grow, so the dialog can say so.
   lastGrowth: number | null = null
   sceneId: SceneId = "room"
+  // Locked areas: the dressing nook in the room and Weekend Lane on the street.
+  locks = { nook: true, lane: true }
+
+  private frames: KianaFrames = kianaFrames
+  private catExtra = "cat-none"
 
   private plantGrow = this.plantStage
   private pour: { t: number; thing: Thing } | null = null
@@ -220,6 +225,21 @@ export class Engine {
     if (instant || this.reduced) this.night = this.nightTarget
   }
 
+  setLook(look: KianaLook & { cat: string }) {
+    this.frames = kianaFramesFor(look)
+    this.catExtra = look.cat
+  }
+
+  setUnlocked(ids: string[]) {
+    this.locks = { nook: !ids.includes("nook"), lane: !ids.includes("lane") }
+  }
+
+  // How far right Kiana can go in the current scene.
+  private get maxX() {
+    if (this.sceneId === "room") return this.locks.nook ? NOOK_LOCK_X : WORLD_W - 12
+    return this.locks.lane ? LANE_LOCK_X : STREET_W - 12
+  }
+
   // Secrets the visitor already found on an earlier visit, so they are not announced again.
   setFound(ids: Iterable<SecretId>) {
     for (const id of ids) this.secrets.add(id)
@@ -243,7 +263,7 @@ export class Engine {
       return
     }
     this.standUp()
-    p.target = thing.x
+    p.target = Math.min(thing.x, this.maxX)
     p.pending = thing
     p.running = Math.abs(thing.x - p.x) > 90
   }
@@ -301,7 +321,8 @@ export class Engine {
   }
 
   private sceneThings(): Thing[] {
-    return this.sceneId === "room" ? THINGS : STREET_THINGS
+    const all = this.sceneId === "room" ? THINGS : STREET_THINGS
+    return all.filter((t) => (t.whileLocked ? this.locks[t.whileLocked] : t.behind ? !this.locks[t.behind] : true))
   }
 
   private dynamicThings(): Thing[] {
@@ -343,7 +364,7 @@ export class Engine {
     const thing = this.thingAt(wx, wy)
     if (this.car.driving) {
       if (thing?.id === "car") this.interact(thing)
-      else this.car.target = clamp(wx, 24, this.w - 24)
+      else this.car.target = clamp(wx, 24, Math.min(this.w - 24, this.maxX - 10))
       return
     }
     if (thing) {
@@ -351,7 +372,7 @@ export class Engine {
       return
     }
     this.standUp()
-    p.target = clamp(wx, 12, this.w - 12)
+    p.target = clamp(wx, 12, this.maxX)
     p.pending = null
     p.running = Math.abs(p.target - p.x) > 140
   }
@@ -445,6 +466,11 @@ export class Engine {
         return
       case "say":
         if (thing.id === "poster" && ++this.posterLooks === 3) this.levelUp()
+        break
+      case "dream":
+        p.sit = { x: 36, feet: 121, nap: true }
+        p.x = 36
+        this.secret("dreamer")
         break
     }
     // Some things are better done sitting down.
@@ -817,7 +843,7 @@ export class Engine {
     }
     if (vx) {
       const speed = p.running ? 190 : 64
-      const nx = clamp(p.x + vx * speed * dt, 12, this.w - 12)
+      const nx = clamp(p.x + vx * speed * dt, 12, this.maxX)
       p.x = p.target !== null && Math.sign(p.target - nx) !== vx ? p.target : nx
       p.dir = vx > 0 ? 1 : -1
       p.walking = true
@@ -880,8 +906,8 @@ export class Engine {
         y.roll += Math.abs(y.vx) * dt * 0.25
         const slow = 110 * dt
         y.vx = Math.abs(y.vx) <= slow ? 0 : y.vx - Math.sign(y.vx) * slow
-        if (y.x < 14 || y.x > WORLD_W - 14) {
-          y.x = clamp(y.x, 14, WORLD_W - 14)
+        if (y.x < 14 || y.x > this.maxX - 2) {
+          y.x = clamp(y.x, 14, this.maxX - 2)
           y.vx = -y.vx * 0.6
         }
       }
@@ -945,8 +971,9 @@ export class Engine {
       c.v = Math.abs(c.v) <= slow ? 0 : c.v - Math.sign(c.v) * slow
     }
     c.x += c.v * dt
-    if (c.x < 24 || c.x > this.w - 24) {
-      c.x = clamp(c.x, 24, this.w - 24)
+    const carMax = Math.min(this.w - 24, this.maxX - 10)
+    if (c.x < 24 || c.x > carMax) {
+      c.x = clamp(c.x, 24, carMax)
       c.v = 0
       c.target = null
     }
@@ -1001,6 +1028,7 @@ export class Engine {
       drawSky(c, this.night, scene.t, cam)
       c.drawImage(this.layers.room, 0, 0)
       drawAnimated(c, scene)
+      if (this.locks.nook) drawNookLock(c, scene.t)
       if (this.neonFlash > 0) text(c, "GAMES", 240 - Math.floor(textWidth("GAMES") / 2), 36, C.white)
       drawBowl(c, this.bowlFood)
       // the golden bonus cartridge waits on top of the TV once unlocked
@@ -1015,6 +1043,7 @@ export class Engine {
       drawStreetSky(c, this.night, scene.t, cam, this.viewW)
       c.drawImage(this.layers.street, 0, 0)
       drawStreetAnimated(c, scene.t, this.night)
+      if (this.locks.lane) drawLaneLock(c)
       this.drawPlayer(c)
       drawCar(c, this.car.x, this.car.dir, scene.t, Math.abs(this.car.v) > 5, this.car.driving)
     }
@@ -1048,42 +1077,42 @@ export class Engine {
     if (p.sit) {
       const blink = p.blinkT < 0 || p.sit.nap
       ellipse(c, p.sit.x, p.sit.feet, 7, 1, "rgba(59,42,53,.18)")
-      blit(c, blink ? kianaFrames.sitBlink : kianaFrames.sit, p.sit.x - KIANA_W / 2, p.sit.feet - SIT_H)
+      blit(c, blink ? this.frames.sitBlink : this.frames.sit, p.sit.x - KIANA_W / 2, p.sit.feet - SIT_H)
       return
     }
 
     const shadow = Math.max(3, 7 - Math.round(p.z / 6))
     ellipse(c, p.x, FEET_Y, shadow, 1, "rgba(59,42,53,.22)")
-    let spr = kianaFrames.idle
+    let spr = this.frames.idle
     let bob = 0
     let flip = p.dir < 0
     if (p.z > 0) {
-      spr = p.spin || Math.abs(p.vz) < 40 ? kianaFrames.tuck : kianaFrames.side[0]
+      spr = p.spin || Math.abs(p.vz) < 40 ? this.frames.tuck : this.frames.side[0]
       if (p.spin) flip = Math.floor(this.t * 12) % 2 === 0
     } else if (p.landT > 0) {
-      spr = kianaFrames.sit
+      spr = this.frames.sit
       bob = 0
     } else if (p.walking) {
-      spr = kianaFrames.side[p.frame]
+      spr = this.frames.side[p.frame]
       bob = p.frame % 2 === 1 ? -1 : 0
     } else if (this.pour) {
-      spr = kianaFrames.sideStand
+      spr = this.frames.sideStand
     } else if (party) {
       // dance to the record
-      spr = beat % 2 ? kianaFrames.walkA : kianaFrames.walkB
+      spr = beat % 2 ? this.frames.walkA : this.frames.walkB
       bob = beat % 2 ? -1 : 0
       flip = Math.floor(beat / 4) % 2 === 0
     } else {
       // idle: blink, and every so often stretch and look around
       const phase = p.idle < 6 ? p.idle : 6 + ((p.idle - 6) % 12)
-      if (phase >= 6 && phase < 7.4) spr = kianaFrames.stretch
+      if (phase >= 6 && phase < 7.4) spr = this.frames.stretch
       else if (phase >= 7.4 && phase < 8.6) {
-        spr = kianaFrames.sideStand
+        spr = this.frames.sideStand
         flip = true
       } else if (phase >= 8.6 && phase < 9.8) {
-        spr = kianaFrames.sideStand
+        spr = this.frames.sideStand
         flip = false
-      } else if (p.blinkT < 0) spr = kianaFrames.blink
+      } else if (p.blinkT < 0) spr = this.frames.blink
     }
     blit(c, spr, p.x - KIANA_W / 2, FEET_Y - spr.height + bob - Math.round(p.z), flip)
     if (this.pour) {
@@ -1126,6 +1155,7 @@ export class Engine {
     const tailX = k.dir > 0 ? k.x - CAT_W / 2 - 3 : k.x + CAT_W / 2 - 2
     blit(c, asleep ? catFrames.tailA : tail, tailX, top + 7, k.dir > 0)
     blit(c, face, k.x - CAT_W / 2, top + breathe)
+    drawCatExtra(c, this.catExtra, k.x - CAT_W / 2, top + breathe)
     if (eating) drawBowl(c, this.bowlFood)
   }
 

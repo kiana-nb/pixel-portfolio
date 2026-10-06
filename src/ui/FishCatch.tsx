@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { CAT_H, CAT_W, catFrames } from "../game/actors"
 import { sfx } from "../game/audio"
 import { C, disc, ellipse, px, rect, text, textWidth, type Ctx } from "../game/pixel"
+import { FISH_MAX_COINS, FISH_PER_COIN, wallet } from "../wallet"
 
 // The bonus cartridge: a 30-second game where the cat catches falling fish.
 const W = 160
@@ -64,6 +65,7 @@ export function FishCatch() {
     let last = 0
     let raf = 0
     let t = 0
+    let coinsWon = 0
     const keys = new Set<string>()
 
     const start = () => {
@@ -127,6 +129,7 @@ export function FishCatch() {
       timeLeft -= dt
       if (timeLeft <= 0) {
         mode = "over"
+        coinsWon = wallet.earn(Math.min(FISH_MAX_COINS, Math.floor(score / FISH_PER_COIN)))
         if (score > best) {
           best = score
           saveBest(best)
@@ -168,7 +171,8 @@ export function FishCatch() {
           centered(c, Math.floor(t * 2) % 2 ? "SPACE OR TAP TO START" : "", 56, C.pinkHi)
         } else {
           centered(c, "TIME!", 28, C.sun)
-          centered(c, `SCORE ${score}   BEST ${best}`, 40, C.white)
+          centered(c, `SCORE ${score}   BEST ${best}`, 38, C.white)
+          centered(c, coinsWon ? `+${coinsWon} COINS` : "3 FISH = 1 COIN", 47, C.sun)
           centered(c, Math.floor(t * 2) % 2 ? "SPACE OR TAP TO PLAY AGAIN" : "", 56, C.pinkHi)
         }
       }
@@ -206,7 +210,7 @@ export function FishCatch() {
         role="img"
         aria-label="Bonus game: catch the falling fish with the cat. Use the arrow keys or drag across the screen."
       />
-      <p className="muted fishgame-help">← → or drag to move the cat. Golden fish are worth 3.</p>
+      <p className="muted fishgame-help">← → or drag to move the cat. Golden fish are worth 3. Every 3 fish earn a coin (up to {FISH_MAX_COINS} a round).</p>
     </div>
   )
 }

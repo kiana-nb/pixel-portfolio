@@ -20,6 +20,7 @@ export const SECRETS: Secret[] = [
   { id: "party", title: "Night owl", found: "Started a dance party.", hint: "Music sounds better at night." },
   { id: "lvlup", title: "Level up", found: "Read the poster three times.", hint: "Some posters are worth reading again and again." },
   { id: "konami", title: "Retro gamer", found: "Unlocked the bonus cartridge.", hint: "A famous cheat code, or poke the GAMES sign a few times." },
+  { id: "dreamer", title: "Sweet dreams", found: "Took a nap and had a dream.", hint: "That pillow looks very soft." },
   { id: "meow", title: "Cat whisperer", found: "Said the magic word.", hint: "Type a word the cat understands.", keyboard: true },
 ]
 

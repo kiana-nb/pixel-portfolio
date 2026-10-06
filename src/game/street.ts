@@ -4,10 +4,13 @@ import type { Light, Thing } from "./world"
 // Career Street: the scene outside Kiana's door. Each building is a stop on her way so far,
 // with the years painted on the sidewalk like a timeline.
 
-export const STREET_W = 1000
+export const STREET_W = 1720
+// Weekend Lane: Kiana's life off the clock, behind a gate. While it is locked she stops at LANE_LOCK_X.
+export const LANE_X = 1130
+export const LANE_LOCK_X = 1112
 const BASE = 121
 
-// x positions of the career stops; index is the entry in EXPERIENCE
+// x positions of the career stops; index is the entry in TIMELINE
 const STOPS = { home: 81, sampad: 220, uni: 392, mojalal: 556, classeh: 725, next: 905 }
 
 export const STREET_THINGS: Thing[] = [
@@ -17,6 +20,12 @@ export const STREET_THINGS: Thing[] = [
   { id: "mojalal", label: "Mojalal · 2023", x: STOPS.mojalal, hit: [512, 58, 88, 64], action: { kind: "career", index: 1 } },
   { id: "classeh", label: "Classeh · 2023 – now", x: STOPS.classeh, hit: [660, 10, 130, 112], action: { kind: "career", index: 0 } },
   { id: "next", label: "next stop?", x: STOPS.next, hit: [860, 74, 90, 50], action: { kind: "section", id: "contact" } },
+  { id: "arcade", label: "arcade · win coins", x: 1055, hit: [1010, 50, 90, 72], action: { kind: "place", id: "arcade" } },
+  { id: "laneGate", label: "weekend lane · locked", x: 1130, hit: [1116, 60, 30, 64], action: { kind: "unlock", area: "lane" }, whileLocked: "lane" },
+  { id: "cinema", label: "cinema · favourites", x: 1222, hit: [1172, 40, 100, 82], action: { kind: "place", id: "cinema" }, behind: "lane" },
+  { id: "gallery", label: "gallery · photos & paintings", x: 1345, hit: [1296, 56, 100, 66], action: { kind: "place", id: "gallery" }, behind: "lane" },
+  { id: "sports", label: "sports · swim & more", x: 1480, hit: [1420, 50, 120, 72], action: { kind: "place", id: "sports" }, behind: "lane" },
+  { id: "reading", label: "books & webtoons", x: 1615, hit: [1566, 62, 100, 60], action: { kind: "place", id: "reading" }, behind: "lane" },
 ]
 
 export const CAR_START = 150
@@ -24,7 +33,7 @@ export const CAR_Y = 179
 
 // Windows that light up at night, collected while the static layer is drawn.
 const LIT: [number, number, number, number][] = []
-const lamps = [150, 312, 494, 642, 812, 975]
+const lamps = [150, 312, 494, 642, 812, 975, 1160, 1288, 1410, 1556, 1700]
 
 function windowRect(c: Ctx, x: number, y: number, w: number, h: number, glass = C.skyHi) {
   rect(c, x, y, w, h, C.ol)
@@ -193,6 +202,110 @@ function nextLot(c: Ctx) {
   }
 }
 
+// ---------- the arcade and Weekend Lane ----------
+
+function arcade(c: Ctx) {
+  const x = 1010
+  box(c, x, BASE - 66, 90, 67, "#3a2f6b", "#5a4a9a", "#2a2252")
+  box(c, x + 6, BASE - 78, 78, 16, "#2b2433")
+  text(c, "ARCADE", x + 45 - Math.floor(textWidth("ARCADE") / 2), BASE - 73, C.pinkHi)
+  // two cabinets seen through the window
+  windowRect(c, x + 8, BASE - 52, 74, 30, "#1f2340")
+  for (const cx of [x + 18, x + 52]) {
+    box(c, cx, BASE - 48, 18, 24, C.lilac, C.lilacHi, C.lilacSh)
+    rect(c, cx + 3, BASE - 45, 12, 8, C.mint)
+    rect(c, cx + 5, BASE - 34, 2, 2, C.pink)
+    rect(c, cx + 10, BASE - 34, 2, 2, C.sun)
+  }
+  box(c, x + 36, BASE - 18, 18, 19, "#5a4a9a", C.lilac, "#2a2252")
+  sign(c, "COINS", x + 45, BASE - 62, C.sun, C.ol)
+}
+
+function laneGate(c: Ctx) {
+  const x = 1116
+  box(c, x, BASE - 58, 6, 59, C.wood, C.woodHi, C.woodSh)
+  box(c, x + 24, BASE - 58, 6, 59, C.wood, C.woodHi, C.woodSh)
+  box(c, x - 6, BASE - 70, 42, 13, C.cream, undefined, C.paperSh)
+  text(c, "WEEKEND", x + 15 - Math.floor(textWidth("WEEKEND") / 2), BASE - 68, C.pinkSh)
+  text(c, "LANE", x + 15 - Math.floor(textWidth("LANE") / 2), BASE - 62, C.lilacSh)
+  for (let i = 0; i < 6; i++) px(c, x - 4 + i * 8, BASE - 72, [C.pink, C.sun, C.mint][i % 3])
+}
+
+function cinema(c: Ctx) {
+  const x = 1172
+  box(c, x, BASE - 70, 100, 71, "#c96f5a", "#e08a74", "#9a4f3e")
+  // marquee
+  box(c, x + 10, BASE - 82, 80, 18, C.cream, undefined, C.paperSh)
+  text(c, "CINEMA", x + 50 - Math.floor(textWidth("CINEMA") / 2), BASE - 79, "#c96f5a")
+  text(c, "NOW SHOWING", x + 50 - Math.floor(textWidth("NOW SHOWING") / 2), BASE - 72, C.ol)
+  // posters
+  const posters: [string, string][] = [[C.lilac, C.lilacSh], [C.sky, C.skySh], [C.peach, C.peachSh]]
+  posters.forEach(([col, shade], i) => {
+    box(c, x + 10 + i * 30, BASE - 56, 20, 28, col, undefined, shade)
+    rect(c, x + 14 + i * 30, BASE - 50, 12, 10, C.white)
+    rect(c, x + 14 + i * 30, BASE - 36, 12, 2, C.ol)
+  })
+  box(c, x + 40, BASE - 20, 20, 21, "#7a2f3e", "#9a4f5e", "#5a1f2e")
+  rect(c, x + 49, BASE - 19, 2, 20, C.gold)
+}
+
+function gallery(c: Ctx) {
+  const x = 1296
+  box(c, x, BASE - 56, 100, 57, C.white, undefined, C.greyHi)
+  for (let i = 0; i < 12; i++) rect(c, x - 4 + i * 5, BASE - 57 - i, 108 - i * 10, 1, i === 0 ? C.ol : C.greyHi)
+  sign(c, "GALLERY", x + 50, BASE - 52, C.ol, C.white)
+  // framed pictures in the windows
+  const art: [string, string][] = [[C.sky, C.sun], [C.mint, C.pink], [C.peach, C.lilac]]
+  art.forEach(([bg, fg], i) => {
+    box(c, x + 8 + i * 31, BASE - 38, 22, 18, C.gold, undefined, C.goldSh)
+    rect(c, x + 10 + i * 31, BASE - 36, 18, 14, bg)
+    disc(c, x + 19 + i * 31, BASE - 30, 3, fg)
+  })
+  box(c, x + 42, BASE - 16, 16, 17, C.greySh, C.grey, C.greyDk)
+}
+
+function sports(c: Ctx) {
+  const x = 1420
+  box(c, x, BASE - 64, 120, 65, "#6cb4e8", "#a9def5", "#3f88c5")
+  sign(c, "SPORTS", x + 60, BASE - 60, C.white, C.skySh)
+  for (let i = 0; i < 5; i++) windowRect(c, x + 8 + i * 22, BASE - 46, 16, 12)
+  // a swimmer on the wall
+  disc(c, x + 60, BASE - 22, 4, C.skin)
+  rect(c, x + 56, BASE - 26, 8, 2, C.pink)
+  rect(c, x + 50, BASE - 18, 20, 3, "#c8ecf8")
+  for (let i = 0; i < 4; i++) px(c, x + 48 + i * 7, BASE - 19, C.white)
+  // the pool in front, with lane ropes
+  rect(c, x + 6, BASE - 4, 108, 6, "#3fbccb")
+  for (let i = 0; i < 108; i += 4) px(c, x + 6 + i, BASE - 2, i % 8 ? C.pinkHi : C.white)
+}
+
+function readingCafe(c: Ctx) {
+  const x = 1566
+  box(c, x, BASE - 58, 100, 59, "#fff1c9", undefined, "#ecd9a8")
+  for (let i = 0; i < 11; i++) rect(c, x + 2 + i * 9, BASE - 52, 9, 6, i % 2 ? C.white : C.lilac)
+  sign(c, "BOOKS & TOONS", x + 50, BASE - 44, C.lilac, C.white)
+  windowRect(c, x + 6, BASE - 32, 50, 22, "#c8ecf8")
+  // a shelf of books in the window
+  const books = [C.pink, C.sky, C.sun, C.mint, C.lilac, C.peach, C.rose, C.sky]
+  books.forEach((col, i) => rect(c, x + 9 + i * 5, BASE - 26 - (i % 3), 4, 14 + (i % 3), col))
+  box(c, x + 66, BASE - 20, 18, 21, C.wood, C.woodHi, C.woodSh)
+  // a tiny phone with a webtoon panel
+  box(c, x + 88, BASE - 30, 8, 14, C.ol)
+  rect(c, x + 89, BASE - 29, 6, 5, C.pinkHi)
+  rect(c, x + 89, BASE - 23, 6, 5, C.skyHi)
+}
+
+// Closed gate bars across Weekend Lane until it is unlocked.
+export function drawLaneLock(c: Ctx) {
+  const x = 1116
+  for (let bx = x + 7; bx < x + 24; bx += 4) rect(c, bx, BASE - 54, 2, 54, C.greyDk)
+  rect(c, x + 6, BASE - 40, 18, 2, C.greyDk)
+  box(c, x + 10, BASE - 30, 10, 9, C.gold, C.goldHi, C.goldSh)
+  rect(c, x + 12, BASE - 34, 6, 4, C.ol)
+  rect(c, x + 13, BASE - 33, 4, 3, "#ead9c6")
+  px(c, x + 15, BASE - 27, C.ol)
+}
+
 // ---------- static layer ----------
 
 export function drawStreetStatic(c: Ctx) {
@@ -206,6 +319,14 @@ export function drawStreetStatic(c: Ctx) {
   mojalal(c)
   classeh(c)
   nextLot(c)
+  arcade(c)
+  laneGate(c)
+  cinema(c)
+  gallery(c)
+  sports(c)
+  readingCafe(c)
+  tree(c, 1150, BASE + 1, 8)
+  tree(c, 1705, BASE + 1, 9)
   tree(c, 300, BASE + 1, 9)
   tree(c, 483, BASE + 1, 8)
   tree(c, 820, BASE + 1, 7)
@@ -327,7 +448,9 @@ export function streetLights(night: number, t: number): Light[] {
   if (night <= 0) return []
   const out: Light[] = lamps.map((x) => ({ x: x + 1, y: BASE - 30, r: 48, rgb: [255, 214, 140] as [number, number, number], power: 0.95 }))
   out.push({ x: 725, y: BASE - 106, r: 50, rgb: [255, 140, 190], power: 0.8 + Math.sin(t * 3) * 0.05 })
-  for (const x of [220, 392, 556, 725]) out.push({ x, y: BASE - 30, r: 60, rgb: [255, 210, 130], power: 0.5 })
+  for (const x of [220, 392, 556, 725, 1222, 1345, 1480, 1615]) out.push({ x, y: BASE - 30, r: 60, rgb: [255, 210, 130], power: 0.5 })
+  out.push({ x: 1055, y: BASE - 72, r: 50, rgb: [255, 120, 200], power: 0.85 + Math.sin(t * 6) * 0.08 })
+  out.push({ x: 1222, y: BASE - 76, r: 46, rgb: [255, 220, 150], power: 0.85 })
   return out
 }
 

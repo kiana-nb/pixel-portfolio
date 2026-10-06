@@ -22,7 +22,19 @@ My portfolio as a tiny indie game. Walk around a pixel-art room, pick a project 
 
 Outside the door is **Career Street**: each building is a stop on my way so far (school, university, then each job), with the years painted on the sidewalk like a timeline. There's a car to drive around in, and an empty lot at the end waiting for the next stop.
 
-There are also nine secrets hidden in the room. The star counter in the corner keeps track and gives hints.
+Off the main path there's a softer side, kept out of the way on purpose because this is a work portfolio:
+
+- **Coins:** every secret pays 10, and Fish Catch at the arcade (end of Career Street) pays 1 coin per 3 fish.
+- **Dressing nook** (far end of the room, 20 coins): a wardrobe with outfits, hair colours and extras for Kiana, and things for the cat.
+- **Weekend Lane** (past the arcade, 30 coins): a cinema with favourite series and anime, a gallery, the sports centre and a book & webtoon café.
+- **Kind words:** recommendations from LinkedIn, on the cork board above the desk.
+- **A nap:** the pillow on the bed leads to a short dream.
+
+### Adding photos and paintings
+
+Drop image files into `src/artworks/photos` and `src/artworks/paintings`. They appear in the gallery in file-name order, and the file name becomes the caption. Keep each image around 1200px wide and under 300 KB.
+
+There are also ten secrets hidden in the room. The star counter in the corner keeps track and gives hints.
 
 Controls: `←` `→` or `A` `D` to walk, `Space` to jump, `E` to interact, `F` for full screen, or click / tap anywhere (tap Kiana to jump). The buttons under the room walk you straight to each part.
 

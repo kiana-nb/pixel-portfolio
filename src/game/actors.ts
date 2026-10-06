@@ -1,4 +1,4 @@
-import { C, makeSprite, mirror, type Palette } from "./pixel"
+import { C, disc, makeSprite, mirror, px, rect, type Ctx, type Palette } from "./pixel"
 
 // ---------- Kiana: 18x30, front-facing chibi with a bun and pink headphones ----------
 
@@ -202,25 +202,133 @@ const STRETCH = frontWith(["..................", "..................", ...BLINK,
   g.outline()
 })
 
-export const kianaFrames = {
-  idle: makeSprite("k-idle", [...HEAD, ...BODY, ...LEGS_IDLE], KIANA_PAL),
-  blink: makeSprite("k-blink", [...BLINK, ...BODY, ...LEGS_IDLE], KIANA_PAL),
-  walkA: makeSprite("k-walkA", [...HEAD, ...BODY, ...LEGS_A], KIANA_PAL),
-  walkB: makeSprite("k-walkB", [...HEAD, ...BODY, ...LEGS_B], KIANA_PAL),
-  face: makeSprite("k-face", HEAD, KIANA_PAL),
-  // side view walk cycle: stride, pass, other stride, pass
-  side: [
-    makeSprite("k-side0", sideFrame(-2, STRIDE_FRONT, STRIDE_BACK), KIANA_PAL),
-    makeSprite("k-side1", sideFrame(0, PASS_STRAIGHT, PASS_LIFT), KIANA_PAL),
-    makeSprite("k-side2", sideFrame(2, STRIDE_BACK, STRIDE_FRONT), KIANA_PAL),
-    makeSprite("k-side3", sideFrame(0, PASS_LIFT, PASS_STRAIGHT), KIANA_PAL),
-  ],
-  sideStand: makeSprite("k-sideStand", sideFrame(0, PASS_STRAIGHT, { hip: 8, knee: 8, foot: 8, lift: false }), KIANA_PAL),
-  sit: makeSprite("k-sit", [...HEAD, ...BODY, ...SIT_LEGS], KIANA_PAL),
-  sitBlink: makeSprite("k-sitBlink", [...BLINK, ...BODY, ...SIT_LEGS], KIANA_PAL),
-  stretch: makeSprite("k-stretch", STRETCH, KIANA_PAL),
-  tuck: makeSprite("k-tuck", [...HEAD, ...BODY, ...SIT_LEGS, "..................", ".................."], KIANA_PAL),
+// ---------- looks: outfit and hair colours, and accessories painted onto every frame ----------
+
+const OUTFITS: Record<string, Palette> = {
+  "hoodie-blue": {},
+  "hoodie-pink": { c: "#f58fa8", C: "#d9677f", k: "#fbb8c8", q: C.white },
+  "hoodie-mint": { c: "#7fd1ae", C: "#4fae88", k: "#a6e3c8", q: C.pinkHi },
+  "hoodie-lilac": { c: "#b497e8", C: "#7c5cc9", k: "#d4c2f5", q: C.sun },
+  // white uniform, black belt, white trousers
+  dobok: { c: "#fbf7f0", C: "#d8d0c4", k: "#ffffff", q: "#2b2433", j: "#efe8dc", J: "#cfc6b8" },
 }
+const HAIRS: Record<string, Palette> = {
+  "hair-brown": {},
+  "hair-black": { h: "#2b2433", H: "#4a3f55" },
+  "hair-ginger": { h: "#c8643a", H: "#e88a55" },
+  "hair-pink": { h: "#e8718d", H: "#f7a1b5" },
+}
+const EXTRA_PAL: Palette = { g: "#5c4a7a", x: "#4a3a4a", y: C.pinkHi, v: C.sun, u: C.pink, z: C.gold, Z: C.goldSh }
+
+// dy is where the head starts in the frame (the stretch frame has two extra rows on top).
+function extraFront(g: Grid, extra: string, dy: number) {
+  if (extra === "extra-glasses") {
+    for (const x0 of [4, 10]) {
+      g.row(dy + 9, x0, x0 + 3, "g")
+      g.row(dy + 13, x0, x0 + 3, "g")
+      for (let y = 10; y <= 12; y++) {
+        g.set(x0, dy + y, "g")
+        g.set(x0 + 3, dy + y, "g")
+      }
+    }
+    g.row(dy + 10, 8, 9, "g")
+  } else if (extra === "extra-ears") {
+    for (const [a, b, c] of [[3, 4, 5], [12, 13, 14]]) {
+      g.set(b, dy + 1, "x")
+      g.row(dy + 2, a, c, "x")
+      g.set(b, dy + 2, "y")
+      g.row(dy + 3, a, c, "x")
+    }
+  } else if (extra === "extra-flower") {
+    g.set(3, dy + 5, "v")
+    g.row(dy + 6, 2, 4, "v")
+    g.set(3, dy + 6, "u")
+    g.set(3, dy + 7, "v")
+  } else if (extra === "extra-crown") {
+    g.row(dy + 1, 6, 11, "z")
+    g.row(dy + 2, 6, 11, "Z")
+    for (const x of [6, 8, 9, 11]) g.set(x, dy, "z")
+    g.set(8, dy + 1, "u")
+  }
+  g.outline()
+}
+
+function extraSide(g: Grid, extra: string) {
+  if (extra === "extra-glasses") {
+    g.row(9, 12, 14, "g")
+    g.row(12, 12, 14, "g")
+    g.set(12, 10, "g")
+    g.set(12, 11, "g")
+    g.set(14, 10, "g")
+    g.set(14, 11, "g")
+    g.row(10, 9, 11, "g")
+  } else if (extra === "extra-ears") {
+    g.set(10, 1, "x")
+    g.row(2, 9, 11, "x")
+    g.set(10, 2, "y")
+    g.row(3, 9, 11, "x")
+  } else if (extra === "extra-flower") {
+    g.set(5, 6, "v")
+    g.row(7, 4, 6, "v")
+    g.set(5, 7, "u")
+    g.set(5, 8, "v")
+  } else if (extra === "extra-crown") {
+    g.row(2, 7, 12, "z")
+    g.row(3, 7, 12, "Z")
+    for (const x of [7, 9, 10, 12]) g.set(x, 1, "z")
+  }
+  g.outline()
+}
+
+const withFront = (rows: string[], extra: string, dy = 0) => (extra === "extra-none" ? rows : frontWith(rows, (g) => extraFront(g, extra, dy)))
+const withSide = (rows: string[], extra: string) => (extra === "extra-none" ? rows : frontWith(rows, (g) => extraSide(g, extra)))
+
+export interface KianaLook {
+  outfit: string
+  hair: string
+  extra: string
+}
+
+function buildFrames(look: KianaLook) {
+  const pal: Palette = { ...KIANA_PAL, ...(OUTFITS[look.outfit] ?? {}), ...(HAIRS[look.hair] ?? {}), ...EXTRA_PAL }
+  const id = `${look.outfit}|${look.hair}|${look.extra}`
+  const front = (name: string, rows: string[], dy = 0) => makeSprite(`k-${name}-${id}`, withFront(rows, look.extra, dy), pal)
+  const side = (name: string, rows: string[]) => makeSprite(`k-${name}-${id}`, withSide(rows, look.extra), pal)
+  return {
+    idle: front("idle", [...HEAD, ...BODY, ...LEGS_IDLE]),
+    blink: front("blink", [...BLINK, ...BODY, ...LEGS_IDLE]),
+    walkA: front("walkA", [...HEAD, ...BODY, ...LEGS_A]),
+    walkB: front("walkB", [...HEAD, ...BODY, ...LEGS_B]),
+    face: front("face", HEAD),
+    // side view walk cycle: stride, pass, other stride, pass
+    side: [
+      side("side0", sideFrame(-2, STRIDE_FRONT, STRIDE_BACK)),
+      side("side1", sideFrame(0, PASS_STRAIGHT, PASS_LIFT)),
+      side("side2", sideFrame(2, STRIDE_BACK, STRIDE_FRONT)),
+      side("side3", sideFrame(0, PASS_LIFT, PASS_STRAIGHT)),
+    ],
+    sideStand: side("sideStand", sideFrame(0, PASS_STRAIGHT, { hip: 8, knee: 8, foot: 8, lift: false })),
+    sit: front("sit", [...HEAD, ...BODY, ...SIT_LEGS]),
+    sitBlink: front("sitBlink", [...BLINK, ...BODY, ...SIT_LEGS]),
+    stretch: front("stretch", STRETCH, 2),
+    tuck: front("tuck", [...HEAD, ...BODY, ...SIT_LEGS, "..................", ".................."]),
+  }
+}
+
+export type KianaFrames = ReturnType<typeof buildFrames>
+const frameCache = new Map<string, KianaFrames>()
+
+export function kianaFramesFor(look: KianaLook): KianaFrames {
+  const id = `${look.outfit}|${look.hair}|${look.extra}`
+  let f = frameCache.get(id)
+  if (!f) {
+    f = buildFrames(look)
+    frameCache.set(id, f)
+  }
+  return f
+}
+
+export const kianaFrames = kianaFramesFor({ outfit: "hoodie-blue", hair: "hair-brown", extra: "extra-none" })
 
 export const SIT_H = HEAD.length + BODY.length + SIT_LEGS.length
 
@@ -261,4 +369,34 @@ export const catFrames = {
   happy: makeSprite("c-happy", [...CAT_HAPPY, ...CAT_BODY], CAT_PAL),
   tailA: makeSprite("c-tailA", ["..oo.", ".occo", ".oco.", "oco..", "oco..", "occo.", ".ooo."], CAT_PAL),
   tailB: makeSprite("c-tailB", [".oo..", "occo.", ".oco.", "..oco", "..oco", ".occo", ".ooo."], CAT_PAL),
+}
+
+// What the cat wears, drawn over the cat sprite; x0 and top are the sprite's top-left corner.
+export function drawCatExtra(c: Ctx, item: string, x0: number, top: number) {
+  switch (item) {
+    case "cat-bow":
+      rect(c, x0 + 4, top + 8, 3, 3, C.ol)
+      rect(c, x0 + 9, top + 8, 3, 3, C.ol)
+      rect(c, x0 + 5, top + 9, 2, 1, "#e8555a")
+      rect(c, x0 + 9, top + 9, 2, 1, "#e8555a")
+      rect(c, x0 + 7, top + 9, 2, 2, "#b83a40")
+      break
+    case "cat-bell":
+      rect(c, x0 + 3, top + 9, 10, 1, C.pinkSh)
+      disc(c, x0 + 8, top + 11, 1, C.ol)
+      px(c, x0 + 8, top + 11, C.gold)
+      break
+    case "cat-scarf":
+      rect(c, x0 + 2, top + 8, 12, 2, C.mint)
+      for (let i = 0; i < 12; i += 3) px(c, x0 + 2 + i, top + 8, C.white)
+      rect(c, x0 + 11, top + 10, 2, 3, C.mintSh)
+      rect(c, x0 + 1, top + 7, 14, 1, C.ol)
+      break
+    case "cat-hat":
+      rect(c, x0 + 3, top + 2, 10, 1, C.ol)
+      for (let i = 0; i < 6; i++) rect(c, x0 + 5 + Math.floor(i / 2), top + 1 - i, 6 - Math.floor(i / 2) * 2, 1, i === 0 ? C.lilacSh : C.lilac)
+      px(c, x0 + 8, top - 5, C.sun)
+      px(c, x0 + 7, top - 1, C.sun)
+      break
+  }
 }

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { EXPERIENCE, PROJECTS, type SectionId } from "../content"
+import { PROJECTS, TIMELINE, type SectionId } from "../content"
 import { sfx } from "../game/audio"
 import { Engine, type SceneId, type SecretId } from "../game/engine"
 import type { Thing } from "../game/world"
 import { Portrait } from "./pixels"
 import { ProjectsConsole } from "./ProjectsConsole"
 import { SECRETS, loadFound, saveFound, type SecretKey } from "../secrets"
-import { BODIES, Panel, TITLES } from "./sections"
+import { SECRET_REWARD, useWallet, wallet } from "../wallet"
+import { Coins, DreamOverlay, PLACES, UnlockBody, WardrobeBody } from "./offclock"
+import { BODIES, KindWords, Panel, TITLES } from "./sections"
 
 type Speaker = "kiana" | "cat"
 interface Dialog {
@@ -56,6 +58,11 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   const fitRef = useRef<() => void>(() => {})
   const [found, setFound] = useState<Set<SecretKey>>(loadFound)
   const [toast, setToast] = useState<{ title: string; n: number } | null>(null)
+  const [unlockArea, setUnlockArea] = useState<"nook" | "lane" | null>(null)
+  const [wardrobeTab, setWardrobeTab] = useState<"kiana" | "cat" | null>(null)
+  const [place, setPlace] = useState<keyof typeof PLACES | null>(null)
+  const [dreaming, setDreaming] = useState(false)
+  const purse = useWallet()
   const [secretsOpen, setSecretsOpen] = useState(false)
   const [career, setCareer] = useState<number | null>(null)
   const [scene, setScene] = useState<SceneId>("room")
@@ -72,6 +79,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     setFound(next)
     saveFound(next)
     const def = SECRETS.find((x) => x.id === id)
+    wallet.earnOnce(`secret:${id}`, SECRET_REWARD)
     if (def) setToast({ title: def.title, n: next.size })
     sfx.secret()
   }, [])
@@ -122,6 +130,25 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         case "feed":
           sfx.blip(660)
           say(["You fill the bowl with crunchy fish bites.", "Someone heard that!"])
+          break
+        case "unlock":
+          sfx.open()
+          setDialog(null)
+          setUnlockArea(a.area)
+          break
+        case "wardrobe":
+          sfx.open()
+          setDialog(null)
+          setWardrobeTab(a.tab)
+          break
+        case "place":
+          sfx.open()
+          setDialog(null)
+          setPlace(a.id)
+          break
+        case "dream":
+          setDialog(null)
+          window.setTimeout(() => setDreaming(true), reducedMotion() ? 0 : 900)
           break
         case "career":
           sfx.open()
@@ -181,7 +208,12 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     const engine = new Engine(canvas, promptRef.current!, { onInteract: (t) => onInteract(t), onAdvance: () => advance(), onSecret: (id: SecretId) => unlock(id), onScene: (id: SceneId) => onScene(id) }, PROJECTS.map((p) => ({ label: p.label, stripe: p.stripe })))
     engineRef.current = engine
     if (import.meta.env.DEV) Object.assign(window, { __engine: engine })
-    engine.setFound([...loadFound()].filter((x): x is SecretId => x !== "explorer"))
+    const found0 = loadFound()
+    engine.setFound([...found0].filter((x): x is SecretId => x !== "explorer"))
+    // secrets found before coins existed still pay out, once
+    found0.forEach((id) => wallet.earnOnce(`secret:${id}`, SECRET_REWARD))
+    engine.setLook(wallet.get().look)
+    engine.setUnlocked(wallet.get().unlocked)
     engine.setNight(live.current.night, true)
     const fit = () => {
       const w = stageRef.current?.clientWidth ?? 800
@@ -283,8 +315,15 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
     if (engineRef.current) engineRef.current.music = music
   }, [music])
   useEffect(() => {
-    if (engineRef.current) engineRef.current.paused = !!panel || consoleOpen || secretsOpen || career !== null
-  }, [panel, consoleOpen, secretsOpen, career])
+    if (engineRef.current)
+      engineRef.current.paused = !!panel || consoleOpen || secretsOpen || career !== null || !!unlockArea || !!wardrobeTab || !!place || dreaming
+  }, [panel, consoleOpen, secretsOpen, career, unlockArea, wardrobeTab, place, dreaming])
+
+  // keep the room in step with the wallet: what Kiana and the cat wear, and which areas are open
+  useEffect(() => {
+    engineRef.current?.setLook(purse.look)
+    engineRef.current?.setUnlocked(purse.unlocked)
+  }, [purse.look, purse.unlocked])
 
   // Typed secrets: the Konami code and the word "meow".
   useEffect(() => {
@@ -341,6 +380,13 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
   }, [])
   const closeConsole = useCallback(() => setConsoleOpen(false), [])
   const closeSecrets = useCallback(() => setSecretsOpen(false), [])
+  const closeUnlock = useCallback(() => setUnlockArea(null), [])
+  const closeWardrobe = useCallback(() => setWardrobeTab(null), [])
+  const closePlace = useCallback(() => setPlace(null), [])
+  const endDream = useCallback(() => {
+    setDreaming(false)
+    say(["*yawn* What a nice dream."])
+  }, [say])
   const closeCareer = useCallback(() => {
     sfx.close()
     setCareer(null)
@@ -387,6 +433,10 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         <button type="button" className="secrets-btn" onClick={() => setSecretsOpen(true)} aria-label={`Secrets found: ${found.size} of ${secretsHere.length}`}>
           ★ {found.size}/{secretsHere.length}
         </button>
+        <span className="coins-hud" aria-label={`${purse.coins} coins`}>
+          <Coins n={purse.coins} />
+        </span>
+        {dreaming && <DreamOverlay onDone={endDream} />}
         {full && rotateHint && (
           <div className="rotate-hint" role="status">
             <span className="rotate-phone" aria-hidden="true" />
@@ -405,6 +455,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
             <span className="toast-count">
               {toast.n}/{secretsHere.length}
             </span>
+            <span className="toast-coins">+{SECRET_REWARD}</span>
           </div>
         )}
         <canvas ref={canvasRef} className="room" role="img" aria-label="Kiana's pixel room. Use the buttons below the room to visit each part." />
@@ -442,10 +493,28 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
         </Panel>
       )}
       {consoleOpen && <ProjectsConsole onClose={closeConsole} onInsert={insert} bonus={found.has("konami")} />}
-      {career !== null && (
-        <Panel title={`career street · stop ${EXPERIENCE.length - career} of ${EXPERIENCE.length}`} onClose={closeCareer}>
+      {unlockArea && (
+        <Panel title={unlockArea === "nook" ? "dressing nook · locked" : "weekend lane · locked"} onClose={closeUnlock}>
+          <UnlockBody area={unlockArea} onDone={closeUnlock} />
+        </Panel>
+      )}
+      {wardrobeTab && (
+        <Panel title="wardrobe" onClose={closeWardrobe}>
+          <WardrobeBody tab={wardrobeTab} />
+        </Panel>
+      )}
+      {place && (
+        <Panel title={PLACES[place].title} onClose={closePlace}>
           {(() => {
-            const e = EXPERIENCE[career]
+            const Body = PLACES[place].body
+            return Body ? <Body /> : <KindWords />
+          })()}
+        </Panel>
+      )}
+      {career !== null && (
+        <Panel title={`career street · stop ${TIMELINE.length - career} of ${TIMELINE.length}`} onClose={closeCareer}>
+          {(() => {
+            const e = TIMELINE[career]
             return (
               <div className="career-stop">
                 <p className="when">{e.when}</p>
@@ -453,7 +522,7 @@ export function Game({ night, music, onToggleNight, onToggleMusic }: Props) {
                 <p className="role-line">{e.what}</p>
                 {e.note && <p>{e.note}</p>}
                 <div className="link-row">
-                  {career < EXPERIENCE.length - 1 && (
+                  {career < TIMELINE.length - 1 && (
                     <button type="button" className="btn small" onClick={() => setCareer(career + 1)}>
                       ◀ earlier stop
                     </button>

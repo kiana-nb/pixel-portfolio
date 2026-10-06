@@ -1,7 +1,10 @@
 import type { SectionId } from "../content"
 import { C, blit, box, disc, dither, ellipse, line, px, rbox, rect, text, textWidth, type Ctx } from "./pixel"
 
-export const WORLD_W = 760
+export const WORLD_W = 860
+// The dressing nook at the far end of the room starts here; while it is locked Kiana stops at NOOK_LOCK_X.
+export const NOOK_X = 760
+export const NOOK_LOCK_X = 742
 export const WORLD_H = 180
 export const FEET_Y = 166
 
@@ -18,6 +21,10 @@ export type ThingAction =
   | { kind: "go"; to: "room" | "street" }
   | { kind: "career"; index: number }
   | { kind: "drive" }
+  | { kind: "unlock"; area: "nook" | "lane" }
+  | { kind: "wardrobe"; tab: "kiana" | "cat" }
+  | { kind: "place"; id: "arcade" | "cinema" | "gallery" | "sports" | "reading" | "kindwords" }
+  | { kind: "dream" }
   | { kind: "say"; lines: string[] }
 
 export interface Thing {
@@ -28,11 +35,15 @@ export interface Thing {
   action: ThingAction
   // Only reachable by clicking or tapping, never the nearest thing for the E key.
   clickOnly?: boolean
+  // Shown only while this area is locked (the gate), or only once it is unlocked (what is behind it).
+  whileLocked?: "nook" | "lane"
+  behind?: "nook" | "lane"
 }
 
 export const BOWL_X = 521
 
 export const THINGS: Thing[] = [
+  { id: "pillow", label: "take a nap", x: 31, hit: [22, 104, 20, 12], action: { kind: "dream" } },
   { id: "journal", label: "about me", x: 53, hit: [44, 104, 18, 12], action: { kind: "section", id: "about" } },
   { id: "window", label: "day / night", x: 70, hit: [26, 18, 76, 72], action: { kind: "theme" } },
   { id: "plant", label: "water the plant", x: 124, hit: [110, 86, 26, 54], action: { kind: "water" } },
@@ -40,6 +51,7 @@ export const THINGS: Thing[] = [
   { id: "neon", label: "GAMES sign", x: 240, hit: [226, 31, 30, 13], action: { kind: "neon" }, clickOnly: true },
   { id: "tv", label: "projects", x: 240, hit: [196, 30, 88, 110], action: { kind: "projects" } },
   { id: "poster", label: "poster", x: 306, hit: [288, 28, 36, 48], action: { kind: "say", lines: ["A poster that says LVL UP!", "One commit at a time."] } },
+  { id: "corkboard", label: "kind words", x: 349, hit: [334, 40, 30, 26], action: { kind: "place", id: "kindwords" } },
   { id: "desk", label: "experience", x: 388, hit: [328, 36, 110, 104], action: { kind: "section", id: "experience" } },
   { id: "bowl", label: "feed the cat", x: BOWL_X, hit: [BOWL_X - 9, 126, 18, 16], action: { kind: "feed" } },
   { id: "certs", label: "certificates", x: 484, hit: [448, 36, 64, 104], action: { kind: "section", id: "certs" } },
@@ -47,6 +59,9 @@ export const THINGS: Thing[] = [
   { id: "door", label: "go outside", x: 645, hit: [618, 56, 54, 84], action: { kind: "go", to: "street" } },
   { id: "mailbox", label: "say hi", x: 687, hit: [674, 78, 28, 30], action: { kind: "section", id: "contact" } },
   { id: "plant2", label: "water the flower", x: 724, hit: [706, 70, 36, 70], action: { kind: "water" } },
+  { id: "nookGate", label: "dressing nook · locked", x: 748, hit: [742, 44, 20, 96], action: { kind: "unlock", area: "nook" }, whileLocked: "nook" },
+  { id: "wardrobe", label: "wardrobe", x: 790, hit: [770, 40, 44, 100], action: { kind: "wardrobe", tab: "kiana" }, behind: "nook" },
+  { id: "catshop", label: "things for the cat", x: 838, hit: [822, 96, 32, 44], action: { kind: "wardrobe", tab: "cat" }, behind: "nook" },
 ]
 
 // ---------- helpers ----------
@@ -71,7 +86,7 @@ const floorShadow = (c: Ctx, x: number, w: number) => rect(c, x, 139, w, 2, "rgb
 
 // ---------- string lights ----------
 
-const HOOKS = [0, 95, 190, 285, 380, 475, 570, 665, 760]
+const HOOKS = [0, 95, 190, 285, 380, 475, 570, 665, 760, 860]
 const BULB_COLORS = [C.pink, C.sun, C.mint, C.sky, C.lilac]
 export const BULBS: { x: number; y: number; col: string }[] = []
 for (let i = 0; i < HOOKS.length - 1; i++) {
@@ -684,6 +699,62 @@ function doorCorner(c: Ctx) {
   for (let x = 619; x < 672; x += 4) rect(c, x, 142, 2, 4, C.roseHi)
 }
 
+// ---------- dressing nook ----------
+
+function dressingNook(c: Ctx) {
+  // a lilac alcove behind an arch
+  rect(c, NOOK_X, 8, WORLD_W - NOOK_X, 91, "#e9d9f5")
+  for (let x = NOOK_X + 4; x < WORLD_W; x += 10) rect(c, x, 8, 3, 91, "#ddc9ee")
+  box(c, 744, 30, 16, 110, C.trim, C.white, C.trimSh)
+  rect(c, 744, 30, 16, 4, C.wood)
+  // wardrobe
+  floorShadow(c, 770, 46)
+  box(c, 772, 40, 40, 100, C.wood, C.woodHi, C.woodSh)
+  box(c, 775, 46, 16, 88, C.roseHi, C.white, C.rose)
+  box(c, 793, 46, 16, 88, C.roseHi, C.white, C.rose)
+  rect(c, 789, 86, 2, 6, C.gold)
+  rect(c, 795, 86, 2, 6, C.gold)
+  // a hoodie sleeve peeking out of the door
+  rect(c, 791, 100, 3, 12, C.hoodie)
+  rect(c, 791, 112, 3, 2, C.skin)
+  box(c, 770, 36, 44, 5, C.wood, C.woodHi)
+  // mirror with bulbs
+  box(c, 818, 64, 16, 72, C.gold, C.goldHi, C.goldSh)
+  rect(c, 820, 66, 12, 68, C.skyHi)
+  line(c, 822, 70, 828, 64 + 10, C.white)
+  line(c, 822, 78, 830, 70, C.white)
+  for (let y = 60; y < 136; y += 10) px(c, 816, y, C.cream)
+  // cat corner: a basket with treats and a toy mouse
+  box(c, 822, 126, 30, 14, "#e3b872", "#f2d39a", "#b98d4a")
+  rect(c, 824, 129, 26, 1, "#c99d58")
+  rect(c, 840, 116, 8, 10, C.white)
+  rect(c, 840, 116, 8, 2, C.pink)
+  px(c, 843, 120, C.peach)
+  px(c, 845, 122, C.peach)
+  rect(c, 828, 123, 5, 3, C.greySh)
+  px(c, 833, 124, C.pinkHi)
+  // round rug
+  ellipse(c, 806, 158, 30, 6, C.lilacSh)
+  ellipse(c, 806, 158, 27, 5, C.lilac)
+  ellipse(c, 806, 158, 15, 2, C.lilacHi)
+}
+
+// A beaded curtain with a padlock closes the nook until it is unlocked.
+export function drawNookLock(c: Ctx, t: number) {
+  for (let x = 746; x < 760; x += 3) {
+    for (let y = 36; y < 136; y += 4) {
+      const sway = Math.round(Math.sin(t * 1.5 + x * 0.5 + y * 0.1) * 0.6)
+      rect(c, x + sway, y, 2, 3, (x + y) % 2 ? C.pinkHi : C.lilacHi)
+    }
+  }
+  box(c, 745, 80, 16, 14, C.cream, undefined, C.paperSh)
+  rect(c, 750, 76, 6, 5, C.ol)
+  rect(c, 751, 77, 4, 4, C.cream)
+  box(c, 748, 82, 10, 9, C.gold, C.goldHi, C.goldSh)
+  px(c, 753, 85, C.ol)
+  px(c, 753, 86, C.ol)
+}
+
 // ---------- static layer ----------
 
 export function drawStatic(c: Ctx) {
@@ -699,6 +770,7 @@ export function drawStatic(c: Ctx) {
   musicCorner(c)
   doorCorner(c)
   flowerPot(c)
+  dressingNook(c)
 }
 
 // ---------- window view, drawn behind the static layer ----------
@@ -918,6 +990,7 @@ export function lights(s: Scene): Light[] {
     { x: 235, y: 100, r: s.tvOn || s.inserted !== null ? 56 : 30, rgb: [150, 180, 255], power: (s.tvOn || s.inserted !== null ? 0.95 : 0.45) * flick },
     { x: 240, y: 38, r: 30, rgb: [255, 120, 170], power: 0.85 * flick },
     { x: 64, y: 56, r: 46, rgb: [170, 190, 255], power: 0.55 },
+    { x: 816, y: 90, r: 58, rgb: [255, 214, 150], power: 0.75 },
   ]
   if (s.music) out.push({ x: 552, y: 104, r: 30, rgb: [255, 190, 140], power: 0.6 })
   for (const b of BULBS) {
