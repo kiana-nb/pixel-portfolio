@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ABOUT, ME, PROJECTS } from "../content"
+import { ME, PROJECTS } from "../content"
 import { CRAFTS, FAVORITES, READING, SPORTS } from "../offclock"
 import { Cover, Portrait } from "./pixels"
 import { ResumeCard } from "./Resume"
@@ -123,11 +123,6 @@ export function QuickView() {
           <h1 id="q-name">{ME.name}</h1>
           <p className="q-role">{ME.role}</p>
           <p className="q-tagline">{ME.tagline}</p>
-          <div className="q-about">
-            {ABOUT.map((p) => (
-              <p key={p}>{p}</p>
-            ))}
-          </div>
           <div className="q-contact">
             <ContactRows />
             <div className="link-row">
