@@ -7,7 +7,7 @@ import { FISH_MAX_COINS, FISH_PER_COIN, wallet } from "../wallet"
 // The bonus cartridge: a 30-second game where the cat catches falling fish.
 const W = 160
 const H = 110
-const ROUND = 30
+const ROUND = 25
 const BEST_KEY = "kiana-room-fish-best"
 
 interface Fish {
@@ -59,12 +59,15 @@ export function FishCatch() {
     let score = 0
     let best = loadBest()
     let timeLeft = ROUND
+    // The round runs on the clock, not on frames, so it lasts ROUND seconds at any frame rate.
+    let endsAt = 0
     let fish: Fish[] = []
     let pops: { x: number; y: number; s: string; life: number }[] = []
     let spawnT = 0
     let last = 0
     let raf = 0
     let t = 0
+    // coins paid out so far this round; paid as they are earned, so closing early keeps them
     let coinsWon = 0
     const keys = new Set<string>()
 
@@ -72,8 +75,10 @@ export function FishCatch() {
       mode = "play"
       score = 0
       timeLeft = ROUND
+      endsAt = performance.now() + ROUND * 1000
       fish = []
       pops = []
+      coinsWon = 0
       spawnT = 0.3
       sfx.open()
     }
@@ -122,14 +127,20 @@ export function FishCatch() {
           score += f.gold ? 3 : 1
           pops.push({ x: f.x, y: f.y - 6, s: f.gold ? "+3" : "+1", life: 0.6 })
           sfx.blip(f.gold ? 1320 : 990)
+          const due = Math.min(FISH_MAX_COINS, Math.floor(score / FISH_PER_COIN))
+          if (due > coinsWon) {
+            wallet.earn(due - coinsWon)
+            coinsWon = due
+            pops.push({ x: catX, y: H - 34, s: "+1 COIN", life: 0.9 })
+          }
           return false
         }
         return f.y < H + 6
       })
-      timeLeft -= dt
+      timeLeft = (endsAt - performance.now()) / 1000
       if (timeLeft <= 0) {
+        timeLeft = 0
         mode = "over"
-        coinsWon = wallet.earn(Math.min(FISH_MAX_COINS, Math.floor(score / FISH_PER_COIN)))
         if (score > best) {
           best = score
           saveBest(best)
@@ -160,9 +171,14 @@ export function FishCatch() {
       for (const p of pops) text(c, p.s, Math.round(p.x - 3), Math.round(p.y - (0.6 - p.life) * 12), C.sun)
       // HUD and screens
       if (mode === "play") {
-        text(c, `SCORE ${score}`, 4, 4, C.white)
+        // countdown bar across the top
+        rect(c, 0, 0, W, 3, "rgba(0,0,0,.35)")
+        rect(c, 0, 0, Math.round((W * Math.max(0, timeLeft)) / ROUND), 3, timeLeft < 6 ? C.pinkHi : C.sun)
+        text(c, `SCORE ${score}`, 4, 6, C.white)
+        const coinText = `COINS ${coinsWon}`
+        text(c, coinText, Math.floor((W - textWidth(coinText)) / 2), 6, C.sun)
         const s = `${Math.ceil(timeLeft)}S`
-        text(c, s, W - textWidth(s) - 4, 4, timeLeft < 6 ? C.pinkHi : C.white)
+        text(c, s, W - textWidth(s) - 4, 6, timeLeft < 6 ? C.pinkHi : C.white)
       } else {
         rect(c, 14, 22, W - 28, 50, "rgba(20,14,40,.75)")
         if (mode === "ready") {
@@ -186,13 +202,27 @@ export function FishCatch() {
       raf = requestAnimationFrame(loop)
     }
 
+    // Time spent with the tab hidden during a round doesn't count.
+    let hiddenAt = 0
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenAt = mode === "play" ? performance.now() : 0
+        return
+      }
+      if (hiddenAt && mode === "play") endsAt += performance.now() - hiddenAt
+      hiddenAt = 0
+    }
+
+    document.addEventListener("visibilitychange", onVisibility)
     window.addEventListener("keydown", onKeyDown)
     window.addEventListener("keyup", onKeyUp)
     cv.addEventListener("pointerdown", onDown)
     cv.addEventListener("pointermove", onMove)
     raf = requestAnimationFrame(loop)
+    if (import.meta.env.DEV) Object.assign(window, { __fish: { state: () => ({ mode, timeLeft, score, coinsWon, clock: (endsAt - performance.now()) / 1000, hiddenAt }), start, step: (n: number) => { for (let i = 0; i < n; i++) { endsAt -= 1000 / 60; update(1 / 60) } }, catchAt: () => fish.push({ x: catX, y: H - 20, vy: 10, gold: false }) } })
     return () => {
       cancelAnimationFrame(raf)
+      document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
       cv.removeEventListener("pointerdown", onDown)
@@ -210,7 +240,7 @@ export function FishCatch() {
         role="img"
         aria-label="Bonus game: catch the falling fish with the cat. Use the arrow keys or drag across the screen."
       />
-      <p className="muted fishgame-help">← → or drag to move the cat. Golden fish are worth 3. Every 3 fish earn a coin (up to {FISH_MAX_COINS} a round).</p>
+      <p className="muted fishgame-help">← → or drag to move the cat. Each round lasts {ROUND} seconds. Every {FISH_PER_COIN} points pay a coin straight away (up to {FISH_MAX_COINS} a round), so you keep them even if you close the game early.</p>
     </div>
   )
 }

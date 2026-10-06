@@ -24,7 +24,7 @@ Outside the door is **Career Street**: each building is a stop on my way so far 
 
 Off the main path there's a softer side, kept out of the way on purpose because this is a work portfolio:
 
-- **Coins:** every secret pays 10, and Fish Catch at the arcade (end of Career Street) pays 1 coin per 3 fish.
+- **Coins:** every secret pays 10, and Fish Catch at the arcade (end of Career Street) pays 1 coin per 3 points as you play.
 - **Dressing nook** (far end of the room, 20 coins): a wardrobe with outfits, hair colours and extras for Kiana, and things for the cat.
 - **Weekend Lane** (past the arcade, 30 coins): a cinema with favourite series and anime, a gallery, the sports centre and a book & webtoon café.
 - **Kind words:** recommendations from LinkedIn, on the cork board above the desk.

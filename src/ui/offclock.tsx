@@ -26,7 +26,7 @@ export function HowToEarn() {
           Find secrets around the room and the street: <strong>+{SECRET_REWARD}</strong> each. The ★ counter has hints.
         </li>
         <li>
-          Play Fish Catch at the <strong>arcade</strong> on Career Street: 1 coin for every {FISH_PER_COIN} fish, up to {FISH_MAX_COINS} a round.
+          Play Fish Catch at the <strong>arcade</strong> on Career Street: 1 coin for every {FISH_PER_COIN} points, paid straight away, up to {FISH_MAX_COINS} a round.
         </li>
       </ul>
     </div>
