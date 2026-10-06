@@ -24,7 +24,7 @@ export const READING = "I love reading books and webtoons."
 const pick = (files: Record<string, string>) =>
   Object.entries(files)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([path, src]) => ({ src, name: path.split("/").pop()!.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") }))
+    .map(([path, src]) => ({ src, name: path.split("/").pop()!.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() }))
 
 export const PHOTOS = pick(
   import.meta.glob<string>("./artworks/photos/*.{jpg,jpeg,png,webp}", { eager: true, query: "?url", import: "default" }),

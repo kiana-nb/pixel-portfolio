@@ -8,13 +8,15 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 // A frame from late in each loop, so the still image already shows the finished scene.
 const REST_T = 4.3
 
-export function Cover({ id, label }: { id: CoverId; label: string }) {
+type Draw = (c: CanvasRenderingContext2D, t: number) => void
+
+// An animated pixel scene. It only runs while it is on screen, and holds a still frame for reduced motion.
+export function PixelArt({ draw, w, h, label, className }: { draw: Draw; w: number; h: number; label: string; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const cv = ref.current
     if (!cv) return
     const c = cv.getContext("2d")!
-    const draw = COVERS[id]
     draw(c, REST_T)
     if (reducedMotion()) return
     let raf = 0
@@ -32,8 +34,12 @@ export function Cover({ id, label }: { id: CoverId; label: string }) {
       io.disconnect()
       cancelAnimationFrame(raf)
     }
-  }, [id])
-  return <canvas ref={ref} className="cover" width={COVER_W} height={COVER_H} role="img" aria-label={label} />
+  }, [draw])
+  return <canvas ref={ref} className={className} width={w} height={h} role="img" aria-label={label} />
+}
+
+export function Cover({ id, label }: { id: CoverId; label: string }) {
+  return <PixelArt draw={COVERS[id]} w={COVER_W} h={COVER_H} label={label} className="cover" />
 }
 
 // Small face portraits for the dialog box and the quick view.

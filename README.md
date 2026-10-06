@@ -26,13 +26,13 @@ Off the main path there's a softer side, kept out of the way on purpose because 
 
 - **Coins:** every secret pays 10, and Fish Catch at the arcade (end of Career Street) pays 1 coin per 3 points as you play.
 - **Dressing nook** (far end of the room, 20 coins): a wardrobe with outfits, hair colours and extras for Kiana, and things for the cat.
-- **Weekend Lane** (past the arcade, 30 coins): a cinema with favourite series and anime, a gallery, the sports centre and a book & webtoon café.
+- **Weekend Lane** (past the arcade, 30 coins): a cinema with an animated pixel poster for each favourite series and anime, a gallery, the sports centre with a scene per sport, and a book & webtoon café.
 - **Kind words:** recommendations from LinkedIn, on the cork board above the desk.
 - **A nap:** the pillow on the bed leads to a short dream.
 
 ### Adding photos and paintings
 
-Drop image files into `src/artworks/photos` and `src/artworks/paintings`. They appear in the gallery in file-name order, and the file name becomes the caption. Keep each image around 1200px wide and under 300 KB.
+Drop image files into `src/artworks/photos` and `src/artworks/paintings`. They appear in the gallery in file-name order, and the file name becomes the caption. Clicking a piece opens it full size; arrow keys or a swipe move through the set. Keep each image around 1200px wide and under 300 KB.
 
 There are also ten secrets hidden in the room. The star counter in the corner keeps track and gives hints.
 

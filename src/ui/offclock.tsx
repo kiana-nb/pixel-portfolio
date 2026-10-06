@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { catFrames, drawCatExtra, kianaFramesFor } from "../game/actors"
 import { sfx } from "../game/audio"
+import { POSTER_H, POSTER_W, SCENE_H, SCENE_W, SPORT_SCENES, drawPoster } from "../game/hobbyart"
 import { C, disc, rect, type Ctx } from "../game/pixel"
 import { FAVORITES, PAINTINGS, PHOTOS, READING, SPORTS } from "../offclock"
 import { FISH_MAX_COINS, FISH_PER_COIN, ITEMS, SECRET_REWARD, UNLOCK_PRICE, useWallet, wallet, type Item, type Slot } from "../wallet"
 import { FishCatch } from "./FishCatch"
+import { PixelArt } from "./pixels"
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -148,29 +151,22 @@ export function WardrobeBody({ tab: initial }: { tab: "kiana" | "cat" }) {
 
 // ---------- Weekend Lane places ----------
 
-function Poster({ title, i }: { title: string; i: number }) {
-  const cols = ["#b497e8", "#6cb4e8", "#f58fa8", "#7fd1ae", "#ffa66e", "#ffd45e"]
-  return (
-    <li className="poster" style={{ background: cols[i % cols.length] }}>
-      <span className="poster-star" aria-hidden="true">
-        ★
-      </span>
-      <span className="poster-title">{title}</span>
-    </li>
-  )
-}
-
 function Cinema() {
-  let i = 0
   return (
     <div className="flow">
-      <p>Now showing: the series and anime I love.</p>
+      <p className="marquee">
+        <span>Now showing</span>
+      </p>
+      <p>The series and anime I love.</p>
       {FAVORITES.map((g) => (
         <section key={g.group}>
           <h4 className="eyebrow">{g.group}</h4>
           <ul className="posters">
-            {g.items.map((t) => (
-              <Poster key={t} title={t} i={i++} />
+            {g.items.map((title) => (
+              <li key={title} className="poster">
+                <PixelArt draw={drawPoster(title)} w={POSTER_W} h={POSTER_H} label={`Pixel poster for ${title}`} className="poster-art" />
+                <span className="poster-title">{title}</span>
+              </li>
             ))}
           </ul>
         </section>
@@ -179,27 +175,126 @@ function Cinema() {
   )
 }
 
+type Art = (typeof PHOTOS)[number]
+
+// One artwork at full size, over everything. Arrow keys and swipes move through the set.
+function Lightbox({ list, at, onMove, onClose }: { list: Art[]; at: number; onMove: (i: number) => void; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const swipe = useRef(0)
+  const art = list[at]
+  const step = (d: number) => onMove((at + d + list.length) % list.length)
+
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null
+    closeRef.current?.focus()
+    return () => prev?.focus?.()
+  }, [])
+
+  // capture phase, so Escape closes only the picture and not the panel behind it
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+      else if (e.key === "ArrowRight") onMove((at + 1) % list.length)
+      else if (e.key === "ArrowLeft") onMove((at - 1 + list.length) % list.length)
+      else return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  }, [at, list.length, onMove, onClose])
+
+  return createPortal(
+    <div
+      className="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={art.name}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+      onTouchStart={(e) => (swipe.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        const dx = e.changedTouches[0].clientX - swipe.current
+        if (Math.abs(dx) > 40 && list.length > 1) step(dx < 0 ? 1 : -1)
+      }}
+    >
+      <figure onClick={(e) => e.stopPropagation()}>
+        <img src={art.src} alt={art.name} />
+        <figcaption>
+          {art.name}
+          {list.length > 1 && (
+            <span className="lb-count">
+              {at + 1} / {list.length}
+            </span>
+          )}
+        </figcaption>
+      </figure>
+      <button type="button" className="lb-btn lb-close" ref={closeRef} aria-label="Close" onClick={onClose}>
+        ×
+      </button>
+      {list.length > 1 && (
+        <>
+          <button
+            type="button"
+            className="lb-btn lb-prev"
+            aria-label="Previous"
+            onClick={(e) => {
+              e.stopPropagation()
+              step(-1)
+            }}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="lb-btn lb-next"
+            aria-label="Next"
+            onClick={(e) => {
+              e.stopPropagation()
+              step(1)
+            }}
+          >
+            ›
+          </button>
+        </>
+      )}
+    </div>,
+    // in full screen, only the full-screen element is visible
+    document.fullscreenElement ?? document.body,
+  )
+}
+
 function Gallery() {
   const [tab, setTab] = useState<"photos" | "paintings">("photos")
+  const [open, setOpen] = useState<number | null>(null)
   const list = tab === "photos" ? PHOTOS : PAINTINGS
+  const close = useCallback(() => setOpen(null), [])
+  const pickTab = (next: "photos" | "paintings") => {
+    setTab(next)
+    setOpen(null)
+  }
   return (
     <div className="flow">
       <p>
-        I take photos and paint. {list.length ? "" : "The walls are still waiting for the first pieces."}
+        I take photos and paint. {list.length ? "Tap a piece to see it big." : "The walls are still waiting for the first pieces."}
       </p>
       <div className="seg small" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "photos"} aria-pressed={tab === "photos"} onClick={() => setTab("photos")}>
+        <button type="button" role="tab" aria-selected={tab === "photos"} aria-pressed={tab === "photos"} onClick={() => pickTab("photos")}>
           Photos
         </button>
-        <button type="button" role="tab" aria-selected={tab === "paintings"} aria-pressed={tab === "paintings"} onClick={() => setTab("paintings")}>
+        <button type="button" role="tab" aria-selected={tab === "paintings"} aria-pressed={tab === "paintings"} onClick={() => pickTab("paintings")}>
           Paintings
         </button>
       </div>
       <ul className="gallery">
         {list.length
-          ? list.map((a) => (
+          ? list.map((a, i) => (
               <li key={a.src}>
-                <img src={a.src} alt={a.name} loading="lazy" />
+                <button type="button" className="art-thumb" aria-label={`Open ${a.name}`} onClick={() => setOpen(i)}>
+                  <img src={a.src} alt="" loading="lazy" />
+                </button>
               </li>
             ))
           : Array.from({ length: 6 }, (_, k) => (
@@ -208,21 +303,41 @@ function Gallery() {
               </li>
             ))}
       </ul>
+      {open !== null && list[open] && <Lightbox list={list} at={open} onMove={setOpen} onClose={close} />}
     </div>
   )
 }
 
 function Sports() {
+  const path = [...SPORTS].reverse()
   return (
-    <ul className="sports">
-      {SPORTS.map((s) => (
-        <li key={s.name}>
-          <h4>{s.name}</h4>
-          <span className="when">{s.when}</span>
-          <p>{s.note}</p>
+    <div className="flow">
+      <ol className="journey" aria-label="My sports, in order">
+        {path.map((s) => (
+          <li key={s.name}>
+            <strong>{s.name}</strong>
+            <span>{s.when}</span>
+          </li>
+        ))}
+        <li className="goal">
+          <strong>Next</strong>
+          <span>swim professionally</span>
         </li>
-      ))}
-    </ul>
+      </ol>
+      <ul className="sports">
+        {SPORTS.map((s) => (
+          <li key={s.name} className={s.when === "now" ? "now" : undefined}>
+            <PixelArt draw={SPORT_SCENES[s.name]} w={SCENE_W} h={SCENE_H} label={`Pixel scene: ${s.name}`} className="cover" />
+            <div className="sport-text">
+              <h4>
+                {s.name} <span className="when">{s.when}</span>
+              </h4>
+              <p>{s.note}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

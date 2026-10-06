@@ -180,6 +180,20 @@ function sideFrame(arm: number, near: Leg, far: Leg) {
   return g.outline().rows()
 }
 
+// a high front kick: the near leg up and out in front, the arm in guard
+function kickFrame() {
+  const g = new Grid(KIANA_W, KIANA_H)
+  sideLeg(g, { hip: 8, knee: 8, foot: 6, lift: false }, "J")
+  sideHead(g)
+  sideBody(g, 3)
+  for (let i = 0; i < 4; i++) {
+    g.set(12 + i, 24 - i, "j")
+    g.set(12 + i, 25 - i, "j")
+  }
+  g.fill(15, 19, 2, 2, "f")
+  return g.outline().rows()
+}
+
 const STRIDE_FRONT: Leg = { hip: 10, knee: 11, foot: 11, lift: false }
 const STRIDE_BACK: Leg = { hip: 8, knee: 7, foot: 5, lift: false }
 const PASS_STRAIGHT: Leg = { hip: 9, knee: 9, foot: 9, lift: false }
@@ -308,6 +322,7 @@ function buildFrames(look: KianaLook) {
       side("side3", sideFrame(0, PASS_LIFT, PASS_STRAIGHT)),
     ],
     sideStand: side("sideStand", sideFrame(0, PASS_STRAIGHT, { hip: 8, knee: 8, foot: 8, lift: false })),
+    kick: side("kick", kickFrame()),
     sit: front("sit", [...HEAD, ...BODY, ...SIT_LEGS]),
     sitBlink: front("sitBlink", [...BLINK, ...BODY, ...SIT_LEGS]),
     stretch: front("stretch", STRETCH, 2),

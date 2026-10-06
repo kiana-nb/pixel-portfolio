@@ -498,20 +498,82 @@ html.room-full { overflow: hidden; }
 .item-name { font-size: 14px; font-weight: 700; line-height: 1.2; }
 
 /* ---------- weekend lane places ---------- */
-.posters { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
-.poster {
-  position: relative; aspect-ratio: 2 / 3; display: grid; align-content: end; padding: 10px; overflow: hidden;
-  border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--shadow);
+.marquee {
+  justify-self: start; margin: 0; padding: 6px; background: #3b2a35; border: 3px solid var(--ink);
+  background-image: radial-gradient(circle, #ffd45e 0 2px, transparent 2.5px); background-size: 10px 10px; background-position: 0 0;
+  animation: bulbs 0.8s steps(2) infinite;
 }
-.poster-star { position: absolute; top: 8px; right: 10px; color: #fff; text-shadow: 1px 1px 0 #3b2a35; }
-.poster-title { font-family: var(--f-display); font-weight: 700; font-size: 16px; line-height: 1.1; color: #3b2a35; background: rgba(255, 250, 244, 0.85); padding: 4px 6px; }
+.marquee span {
+  display: block; padding: 4px 14px; background: #c93d62; color: #fff1c9;
+  font-family: var(--f-label); font-size: 13px; letter-spacing: 1px; text-shadow: 1px 1px 0 #3b2a35;
+}
+@keyframes bulbs { 50% { background-position: 5px 5px; } }
+.posters { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+.poster {
+  display: grid; background: var(--card); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--shadow); overflow: hidden;
+  transition: transform 0.12s steps(2), box-shadow 0.12s steps(2);
+}
+.poster:hover { transform: translate(-2px, -2px) rotate(-1deg); box-shadow: 5px 5px 0 var(--shadow); }
+.poster-art { display: block; width: 100%; height: auto; aspect-ratio: 80 / 112; image-rendering: pixelated; border-bottom: 3px solid var(--ink); }
+.poster-title { padding: 6px 8px 7px; font-family: var(--f-display); font-weight: 700; font-size: 15px; line-height: 1.15; }
 .gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .gallery li { aspect-ratio: 1; border: 4px solid #d9a020; box-shadow: 3px 3px 0 var(--shadow); overflow: hidden; background: var(--card-2); }
-.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.art-thumb { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.art-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.art-thumb:hover img, .art-thumb:focus-visible img { transform: scale(1.05); }
 .frame-empty { display: grid; place-items: center; }
 .frame-empty span { font-family: var(--f-label); font-size: 10px; color: var(--muted); }
-.sports { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.sports li { padding: 12px 14px; background: var(--card-2); border: 2px solid var(--ink); display: grid; gap: 4px; }
+.lightbox {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 56px 64px;
+  background: rgba(15, 8, 24, 0.9); animation: fade 0.15s; cursor: zoom-out;
+}
+.lightbox figure { margin: 0; display: grid; justify-items: center; gap: 10px; min-width: 0; cursor: default; }
+.lightbox img {
+  display: block; max-width: min(100%, 1200px); max-height: calc(100dvh - 160px); object-fit: contain;
+  border: 6px solid #d9a020; box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.45); background: #fffaf4; animation: pop 0.2s steps(4);
+}
+.lightbox figcaption { display: flex; gap: 12px; align-items: baseline; color: #fff1c9; font-weight: 700; text-transform: capitalize; }
+.lb-count { font-weight: 400; color: #cbb8e0; }
+.lb-btn {
+  position: absolute; width: 44px; height: 44px; padding: 0; line-height: 1; font-size: 28px; cursor: pointer;
+  color: #3b2a35; background: #fffaf4; border: 3px solid #3b2a35; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+.lb-btn:hover, .lb-btn:focus-visible { background: #ffd45e; }
+.lb-close { top: 12px; right: 12px; }
+.lb-prev, .lb-next { top: 50%; transform: translateY(-50%); }
+.lb-prev { left: 10px; }
+.lb-next { right: 10px; }
+@media (max-width: 640px) and (orientation: portrait) {
+  .lightbox { padding: 60px 12px 76px; }
+  .lightbox img { max-height: calc(100dvh - 200px); }
+  .lb-prev, .lb-next { top: auto; bottom: 14px; transform: none; }
+  .lb-prev { left: calc(50% - 56px); }
+  .lb-next { right: calc(50% - 56px); }
+}
+.journey { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 0; align-items: center; }
+.journey li { display: grid; padding: 5px 10px; background: var(--card-2); border: 2px solid var(--ink); line-height: 1.2; }
+.journey li:not(:first-child) { margin-left: 22px; position: relative; }
+.journey li:not(:first-child)::before {
+  content: ""; position: absolute; left: -20px; top: 50%; width: 16px; height: 4px; margin-top: -2px;
+  background: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 6px);
+}
+.journey strong { font-family: var(--f-display); font-size: 15px; }
+.journey span { font-size: 12px; color: var(--muted); }
+.journey .goal { background: color-mix(in srgb, var(--sun) 45%, var(--card)); border-style: dashed; }
+.sports { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.sports li {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); background: var(--card);
+  border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--shadow); overflow: hidden;
+}
+.sports li.now { background: color-mix(in srgb, var(--mint) 22%, var(--card)); }
+.sports .cover { height: 100%; object-fit: cover; border-right: 3px solid var(--ink); }
+.sport-text { display: grid; align-content: center; gap: 6px; padding: 12px 14px; }
+.sport-text h4 { margin: 0; font-family: var(--f-display); font-size: 20px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.sport-text p { margin: 0; }
+@media (max-width: 520px) {
+  .sports li { grid-template-columns: 1fr; }
+  .sports .cover { border-right: 0; border-bottom: 3px solid var(--ink); }
+}
 
 /* ---------- the dream ---------- */
 .dream {
