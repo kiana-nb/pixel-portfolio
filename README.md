@@ -47,7 +47,7 @@ Everything in the room is something you can poke. The journal is my about page, 
     <td><b>Project cartridges</b> boot on the CRT. Each project has its own animated pixel cover, drawn in code.</td>
   </tr>
   <tr>
-    <td><img src="docs/shots/quick-view.webp" alt="The quick view: my portrait, name, a short intro, contact details and a resume card"></td>
+    <td><img src="docs/shots/quick-view.webp" alt="The quick view: my portrait, name, contact details and a resume card"></td>
     <td><img src="docs/shots/resume.webp" alt="The resume preview window showing page one of my resume, with buttons to switch version, zoom, open and download the PDF"></td>
   </tr>
   <tr>
