@@ -4,58 +4,49 @@ import { RESUMES, RESUME_UPDATED, pdfLink } from "../resume"
 
 const ZOOMS = [1, 1.5, 2]
 
-// A paper card in the contact areas: a page-1 thumbnail, then a preview and a download per version.
-// `showcase` is the quieter quick-view hero version: one preview and one download, and the version
-// switch lives in the preview window.
-export function ResumeCard({ showcase = false }: { showcase?: boolean }) {
+// A paper card for the game's mailbox window: a page-1 thumbnail, then a preview and a download per version.
+export function ResumeCard() {
   const [open, setOpen] = useState<string | null>(null)
   const close = useCallback(() => setOpen(null), [])
   const first = RESUMES[0]
   return (
-    <div className={showcase ? "resume-card showcase" : "resume-card"}>
-      <div className="resume-stack">
-        <button type="button" className="resume-thumb" onClick={() => setOpen(first.id)} aria-label={`Preview my ${first.label} resume`}>
-          <img src={first.thumb} alt="" loading="lazy" decoding="async" />
-          <span className="resume-peek">preview</span>
-        </button>
-      </div>
-      {showcase ? (
-        <div className="resume-info">
-          <p className="resume-title">
-            <strong>My resume</strong>
-          </p>
-          <p className="resume-meta muted">
-            {RESUMES.length} versions · {RESUME_UPDATED}
-          </p>
-          <div className="link-row resume-buttons">
-            <button type="button" className="btn small" onClick={() => setOpen(first.id)}>
+    <div className="resume-card">
+      <button type="button" className="resume-thumb" onClick={() => setOpen(first.id)} aria-label={`Preview my ${first.label} resume`}>
+        <img src={first.thumb} alt="" loading="lazy" decoding="async" />
+        <span className="resume-peek">preview</span>
+      </button>
+      <div className="resume-info">
+        <p className="resume-title">
+          <strong>My resume</strong> <span className="muted">· updated {RESUME_UPDATED}</span>
+        </p>
+        {RESUMES.map((r) => (
+          <div key={r.id} className="resume-row">
+            <span>{r.label}</span>
+            <button type="button" className="btn small" onClick={() => setOpen(r.id)} aria-label={`Preview the ${r.label} resume`}>
               preview
             </button>
-            <a className="btn small" {...pdfLink(first)} aria-label={`Download the ${first.label} resume as PDF`}>
+            <a className="btn small" {...pdfLink(r)} aria-label={`Download the ${r.label} resume as PDF`}>
               PDF ↓
             </a>
           </div>
-        </div>
-      ) : (
-        <div className="resume-info">
-          <p className="resume-title">
-            <strong>My resume</strong> <span className="muted">· updated {RESUME_UPDATED}</span>
-          </p>
-          {RESUMES.map((r) => (
-            <div key={r.id} className="resume-row">
-              <span>{r.label}</span>
-              <button type="button" className="btn small" onClick={() => setOpen(r.id)} aria-label={`Preview the ${r.label} resume`}>
-                preview
-              </button>
-              <a className="btn small" {...pdfLink(r)} aria-label={`Download the ${r.label} resume as PDF`}>
-                PDF ↓
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
       {open && <ResumeViewer initial={open} onClose={close} />}
     </div>
+  )
+}
+
+// One quiet button for the quick view, next to GitHub and LinkedIn. The preview has the version switch and the download.
+export function ResumeButton() {
+  const [open, setOpen] = useState(false)
+  const close = useCallback(() => setOpen(false), [])
+  return (
+    <>
+      <button type="button" className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        Resume
+      </button>
+      {open && <ResumeViewer initial={RESUMES[0].id} onClose={close} />}
+    </>
   )
 }
 
