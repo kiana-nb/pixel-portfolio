@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { CERT_COUNT, CERT_GROUPS, certDate, type CertGroup } from "../certs"
 import { ABOUT, EDUCATION, EXPERIENCE, LANGUAGES, ME, RECOMMENDATIONS, SKILLS, STATS, type Entry, type Project, type SectionId } from "../content"
 import { Portrait } from "./pixels"
+import { ResumeCard } from "./Resume"
 
 export const TITLES: Record<SectionId, string> = {
   about: "about_me.txt",
@@ -240,6 +241,7 @@ export function Contact() {
     <div className="flow">
       <p>Got a product that needs an owner, or want to talk frontend, 3D or AI workflows? Say hi!</p>
       <ContactRows />
+      <ResumeCard />
       <div className="link-row">
         <a className="btn" href={ME.github} target="_blank" rel="noreferrer">
           GitHub ↗
