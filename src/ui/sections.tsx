@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { CERT_COUNT, CERT_GROUPS, certDate, type CertGroup } from "../certs"
-import { ABOUT, EXPERIENCE, ME, SKILLS, STATS, type Project, type SectionId } from "../content"
+import { ABOUT, EDUCATION, EXPERIENCE, LANGUAGES, ME, RECOMMENDATIONS, SKILLS, STATS, type Entry, type Project, type SectionId } from "../content"
 import { Portrait } from "./pixels"
 
 export const TITLES: Record<SectionId, string> = {
@@ -48,6 +48,8 @@ export function About() {
         <p key={p}>{p}</p>
       ))}
       <Stats />
+      <h4 className="eyebrow">Languages</h4>
+      <Languages />
     </div>
   )
 }
@@ -114,10 +116,10 @@ export function Certs() {
   )
 }
 
-export function Experience() {
+function Timeline({ entries }: { entries: Entry[] }) {
   return (
     <ol className="timeline">
-      {EXPERIENCE.map((e) => (
+      {entries.map((e) => (
         <li key={e.where}>
           <span className="when">{e.when}</span>
           <h4>{e.where}</h4>
@@ -126,6 +128,58 @@ export function Experience() {
         </li>
       ))}
     </ol>
+  )
+}
+
+export const Experience = () => <Timeline entries={EXPERIENCE} />
+export const Education = () => <Timeline entries={EDUCATION} />
+
+// The desk shows both, work first.
+export function WorkAndSchool() {
+  return (
+    <div className="flow">
+      <h4 className="eyebrow">Work</h4>
+      <Experience />
+      <h4 className="eyebrow">Education</h4>
+      <Education />
+    </div>
+  )
+}
+
+export function Languages() {
+  return (
+    <ul className="lang-list">
+      {LANGUAGES.map((l) => (
+        <li key={l.name}>
+          <strong>{l.name}</strong>
+          <span>{l.level}</span>
+          {l.note && <span className="muted">{l.note}</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// Recommendations from LinkedIn, kept quiet: collapsed until someone wants to read them.
+export function KindWords() {
+  return (
+    <div className="kind-words">
+      {RECOMMENDATIONS.map((r) => (
+        <details key={r.name}>
+          <summary>
+            <strong>{r.name}</strong> <span className="muted">· {r.relation}</span>
+          </summary>
+          <blockquote>
+            {r.text.map((t) => (
+              <p key={t.slice(0, 24)}>{t}</p>
+            ))}
+            <footer className="muted">
+              {r.name}, {r.title} · {r.date}
+            </footer>
+          </blockquote>
+        </details>
+      ))}
+    </div>
   )
 }
 
@@ -202,7 +256,7 @@ export const BODIES: Record<Exclude<SectionId, "projects">, () => React.JSX.Elem
   about: About,
   skills: Skills,
   certs: Certs,
-  experience: Experience,
+  experience: WorkAndSchool,
   contact: Contact,
 }
 

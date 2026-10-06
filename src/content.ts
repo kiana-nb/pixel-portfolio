@@ -169,7 +169,14 @@ export const SKILLS: { group: string; items: string[] }[] = [
   { group: "Quality", items: ["Playwright", "Sentry", "i18n + RTL", "Accessibility", "PWA"] },
 ]
 
-export const EXPERIENCE = [
+export interface Entry {
+  where: string
+  what: string
+  when: string
+  note: string
+}
+
+export const EXPERIENCE: Entry[] = [
   {
     where: "Classeh",
     what: "Frontend Developer / AI Product Engineer",
@@ -182,6 +189,9 @@ export const EXPERIENCE = [
     when: "Jun 2023 – Dec 2023",
     note: "Property platform with role-based access, Google Maps insights, Firebase alerts and an OpenAI writing assistant.",
   },
+]
+
+export const EDUCATION: Entry[] = [
   {
     where: "University of Zanjan",
     what: "B.Sc. Computer Science",
@@ -193,5 +203,39 @@ export const EXPERIENCE = [
     what: "School for gifted students",
     when: "Sep 2013 – Jun 2019",
     note: "National Organization for Development of Exceptional Talents.",
+  },
+]
+
+// Career Street walks through both, newest first: jobs, then school.
+export const TIMELINE: Entry[] = [...EXPERIENCE, ...EDUCATION]
+
+// From linkedin.com/in/kiana-nb (read on 2026-10-06).
+export const LANGUAGES: { name: string; level: string; note?: string }[] = [
+  { name: "Persian", level: "Native or bilingual" },
+  { name: "English", level: "Professional working proficiency", note: "Duolingo score 130 · Sep 2023" },
+  { name: "German", level: "Limited working proficiency", note: "Duolingo score 80 · Sep 2023" },
+]
+
+// Recommendations received on LinkedIn, word for word (read on 2026-10-06).
+export const RECOMMENDATIONS: { name: string; title: string; relation: string; date: string; text: string[] }[] = [
+  {
+    name: "Milad Joodi",
+    title: "Frontend Developer · React, Next.js & TypeScript · Node.js & APIs",
+    relation: "Worked with Kiana on the same team",
+    date: "Feb 2026",
+    text: [
+      "I’ve had the pleasure of working with Kiana and she’s an amazing Frontend Developer. She's super responsible, always reliable, and brings great energy to the team. Every team needs someone like her. She’s a true asset! 👍",
+    ],
+  },
+  {
+    name: "Fatima Naderi",
+    title: "Front-End Developer · Vue.js · React.js",
+    relation: "Studied with Kiana",
+    date: "Feb 2026",
+    text: [
+      "I met Kiana in our first year at the University of Zanjan, and we took several classes together in the Computer Science major. Despite the challenges of a demanding academic environment, we successfully navigated our exams and completed our projects. I can say with certainty that she was one of the smartest students in our class.",
+      "Kiana has a genuine curiosity and a deep understanding of algorithms, mathematics, and programming. Her ability to grasp complex concepts quickly and apply them effectively always stood out.",
+      "I’m confident that Kiana will bring that same level of intelligence, curiosity, and dedication to her professional career. She would be a tremendous asset to any team.",
+    ],
   },
 ]
